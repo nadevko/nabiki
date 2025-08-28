@@ -1,6 +1,11 @@
 { self, lib, ... }:
 let
-  inherit (builtins) getFlake toString attrValues catAttrs;
+  inherit (builtins)
+    getFlake
+    toString
+    attrValues
+    catAttrs
+    ;
 
   inherit (self.trivial) fpipe;
 
@@ -17,6 +22,5 @@ in
       (catAttrs "passthru")
       (catAttrs "updateScript")
       unique
-      (map (drv: drv.outPath))
     ];
 }

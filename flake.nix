@@ -1,22 +1,33 @@
 {
+  description = "lib with handy pipeline functions";
+
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
   };
 
   outputs =
-    { self, nixpkgs, ... }:
+    { nixpkgs, ... }@inputs:
     let
       lib = import ./. { inherit (nixpkgs) lib; };
     in
     {
       inherit lib;
-      __functor = _: self.lib.attrsets.nestAttrs;
+      __functor = _: lib.attrsets.nestAttrs;
     }
-    // lib.nestAttrs nixpkgs.lib.platforms.unix (system: {
-      packages = self.lib.readPackages {
-        path = ./pkgs;
-        overrides.lib = nixpkgs.lib // self.lib;
-        pkgs = nixpkgs.legacyPackages.${system};
-      };
-    });
+    // lib.nestAttrs nixpkgs.lib.platforms.all (
+      system:
+      builtins.mapAttrs
+        (
+          _: fn:
+          fn {
+            path = ./pkgs;
+            overrides = { inherit inputs; };
+            pkgs = nixpkgs.legacyPackages.${system};
+          }
+        )
+        {
+          packages = lib.readPackages;
+          legacyPackages = lib.readLegacyPackages;
+        }
+    );
 }

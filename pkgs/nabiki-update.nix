@@ -1,21 +1,33 @@
 {
-  lib,
+  inputs,
   writeShellApplication,
   system,
-  pkgsPath,
 }:
-let
-  inherit (lib.customisation) getUpdateScripts;
-in
 writeShellApplication {
   name = "nabiki-update";
   text = ''
+    flake="$(realpath "''${1:-$PWD}")"
+
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
-    pushd "$tmp"
-    nix build ${lib.escapeShellArgs (getUpdateScripts system pkgsPath)}
-    popd
-    for i in "$tmp"/*/bin/*; do
+    cd "$tmp"
+
+    nix build --impure --expr "
+      let
+        pkgs = import ${inputs.nixpkgs} { };
+        self = import ${inputs.self} { nixpkgs = pkgs; };
+        paths = self.getUpdateScripts \"${system}\" \"$flake\";
+      in
+      pkgs.symlinkJoin {
+        name = \"update-scripts\";
+        inherit paths;
+      }
+    "
+
+    cd "$flake"
+    echo "Change root to $flake"
+    for i in "$tmp"/result/bin/*; do
+      echo "Run $i..."
       "$i"
     done
   '';
