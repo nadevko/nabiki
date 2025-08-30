@@ -10,7 +10,7 @@ let
   inherit (self) isNotUnderscored isNix;
   inherit (self.path) removeExtension concatNodesSep;
   inherit (self.attrsets) setNameToValue pipelineTraverse treeishTraverse;
-  inherit (self.trivial) flatPipeWith flatPipe;
+  inherit (self.trivial) mapPipe flatPipe;
 
   inherit (lib.attrsets) mergeAttrsList mapAttrsToList recursiveUpdate;
   inherit (lib.lists) flatten;
@@ -183,7 +183,7 @@ rec {
         contentReaders
         onContentLoad
       ];
-      onContentLoad = flatPipeWith (map map) [ loaders ];
+      onContentLoad = mapPipe [ loaders ];
     in
     if type == "directory" then
       if pathExists /${value}/${liftedContentFile} then

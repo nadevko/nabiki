@@ -8,7 +8,7 @@ let
     zipAttrsWith
     ;
 
-  inherit (self.trivial) flatPipe flatPipeWith;
+  inherit (self.trivial) flatPipe flatPipeWith mapPipe;
   inherit (self.filesystem) itemiseDir switchDirFile;
 
   inherit (lib.lists) init head last;
@@ -35,7 +35,7 @@ rec {
           perNode
           mergers
         ];
-        perNode = flatPipeWith (map map) [
+        perNode = mapPipe [
           transformers
           onSwitch
         ];
