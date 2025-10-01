@@ -11,7 +11,14 @@
 - [ ] loadLib
 - [ ] loadTests
 - [ ] Generalise
-- [ ] README.md
-- [ ] ## v1.2
+
+## v1.2
+
 - [ ] Write docs
 - [ ] Generate docs page
+- [ ] README.md
+
+## v1.3
+
+- [ ] All other flake attributes?
+- [ ] Add united interface
