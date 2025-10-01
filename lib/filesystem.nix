@@ -2,18 +2,21 @@
 let
   inherit (builtins)
     readDir
-    attrValues
     pathExists
     readFileType
+    concatStringsSep
+    head
+    elem
     ;
 
   inherit (self) isNotUnderscored isNix;
-  inherit (self.path) removeExtension concatNodesSep;
-  inherit (self.attrsets) setNameToValue pipelineTraverse treeishTraverse;
-  inherit (self.trivial) mapPipe flatPipe;
+  inherit (self.path) removeExtension;
+  inherit (self.attrsets) treeishTraverse;
+  inherit (self.trivial) fpipeFlatten fpipe;
+  inherit (self.lists) splitAt;
 
   inherit (lib.attrsets) mergeAttrsList mapAttrsToList recursiveUpdate;
-  inherit (lib.lists) flatten;
+  inherit (lib.lists) flatten filter;
 in
 rec {
   itemiseDir =
@@ -22,22 +25,6 @@ rec {
       inherit nodes name type;
       value = /${value}/${name};
     }) (readDir value);
-
-  itemiseFromContent =
-    {
-      name,
-      nodes,
-      packages,
-      value,
-      ...
-    }:
-    mapAttrsToList (pname: package: {
-      name = pname;
-      nodes = nodes ++ [ name ];
-      type = "regular";
-      value = package;
-      dir = value;
-    }) packages;
 
   switchDirFile =
     { onLeaf, onNode, ... }:
@@ -66,41 +53,94 @@ rec {
       // args
     );
 
-  readModulesFlatten =
+  readDirFlattenRecursive =
     {
-      separator ? "-",
+      path,
+      filters ? [ ],
+      loaders ? [ ],
+      mergers ? [ flatten ],
       ...
-    }@args:
-    pipelineTraverse (
+    }:
+    let
+      onDirectory =
+        {
+          path,
+          nodes ? [ ],
+          ...
+        }:
+        fpipeFlatten [
+          readDir
+          (mapAttrsToList (
+            name: type: {
+              path = /${path}/${name};
+              nodes = nodes ++ [ name ];
+              inherit
+                name
+                type
+                onDirectory
+                onFile
+                ;
+            }
+          ))
+          (map (fn: filter fn) filters)
+          (map ({ type, ... }@entry: (if type == "directory" then onDirectory else onFile) entry))
+        ] path;
+      onFile = fpipe loaders;
+    in
+    fpipe mergers (onDirectory {
+      inherit path;
+    });
+
+  listModules =
+    args:
+    readDirFlattenRecursive (
       {
         filters = [
-          isNotUnderscored
           isNix
+          isNotUnderscored
         ];
-        transformers = [
-          (liftFile "default.nix")
-          removeExtension
-        ];
-        loaders = [
-          (concatNodesSep separator)
-          setNameToValue
-        ];
-        mergers = flatten;
-        updaters = mergeAttrsList;
+        loaders = [ ({ path, ... }: path) ];
       }
       // args
     );
 
-  listModules =
-    args:
-    pipelineTraverse (
+  listPackages =
+    {
+      separator ? "-",
+      namers ? [
+        ({ nodes, ... }: nodes)
+        (
+          nodes:
+          let
+            split = splitAt (-1) nodes;
+            last = head split.tail;
+          in
+          if
+            elem last [
+              "package.nix"
+              "default.nix"
+            ]
+          then
+            split.init
+          else
+            nodes
+        )
+        (concatStringsSep separator)
+        removeExtension
+      ],
+      importers ? [
+        ({ name, path, ... }: if name == "default.nix" then import path pkgs else pkgs.callPackage path { })
+      ],
+      pkgs,
+      ...
+    }@args:
+    listModules (
       {
-        filters = [
-          isNotUnderscored
-          isNix
+        loaders = [ (entry: { ${fpipe namers entry} = fpipe importers entry; }) ];
+        mergers = [
+          flatten
+          mergeAttrsList
         ];
-        loaders = { value, ... }: value;
-        mergers = flatten;
       }
       // args
     );
@@ -157,57 +197,5 @@ rec {
           };
         updaters = recursiveUpdate pkgs;
       }
-    );
-
-  switchDirFileContent = (
-    {
-      importers,
-      callPackage,
-      liftedContentFile,
-      loaders,
-      onLeaf,
-      onNode,
-      contentReaders,
-      ...
-    }:
-    {
-      name,
-      type,
-      nodes,
-      value,
-      ...
-    }@entry:
-    let
-      onContentRead = flatPipe [
-        importers
-        contentReaders
-        onContentLoad
-      ];
-      onContentLoad = mapPipe [ loaders ];
-    in
-    if type == "directory" then
-      if pathExists /${value}/${liftedContentFile} then
-        flatPipe [ onLeaf attrValues ] (entry // { value = onContentRead entry; })
-      else
-        onNode (entry // { nodes = nodes ++ [ name ]; })
-    else
-      onLeaf (flatPipe [ callPackage ] entry)
-  );
-
-  readPackages =
-    { pkgs, overrides, ... }@args:
-    readModulesFlatten (
-      {
-        transformers = [
-          (liftFile "package.nix")
-          removeExtension
-        ];
-        callPackage = entry: entry // { value = pkgs.callPackage entry.value overrides; };
-        importers = entry: entry // { packages = import entry.value (pkgs // overrides); };
-        liftedContentFile = "default.nix";
-        contentReaders = itemiseFromContent;
-        switchers = switchDirFileContent;
-      }
-      // args
     );
 }

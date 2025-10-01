@@ -1,15 +1,12 @@
 { ... }:
 let
-  inherit (builtins) match head concatStringsSep;
+  inherit (builtins) match head;
 in
 {
   removeExtension =
-    { name, ... }@entry:
+    name:
     let
       name' = match "(.*)\\.[^.]+$" name;
     in
-    entry // { name = if name' == null then name else head name'; };
-
-  concatNodesSep =
-    sep: { nodes, name, ... }@entry: entry // { name = concatStringsSep sep (nodes ++ [ name ]); };
+    if name' == null then name else head name';
 }

@@ -1,5 +1,7 @@
 {
-  inputs,
+  inputs ? { },
+  nixpkgs ? inputs.nixpkgs,
+  self ? inputs.self,
   writeShellApplication,
   system,
 }:
@@ -14,8 +16,8 @@ writeShellApplication {
 
     nix build --impure --expr "
       let
-        pkgs = import ${inputs.nixpkgs} { };
-        self = import ${inputs.self} { nixpkgs = pkgs; };
+        pkgs = import ${nixpkgs} { };
+        self = import ${self} { nixpkgs = pkgs; };
         paths = self.getUpdateScripts \"${system}\" \"$flake\";
       in
       pkgs.symlinkJoin {
