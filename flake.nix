@@ -1,5 +1,5 @@
 {
-  description = "lib with handy pipeline functions";
+  description = "yet another lib with some handy nix functions";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
