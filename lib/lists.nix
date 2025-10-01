@@ -1,40 +1,27 @@
-{ ... }:
+self: lib:
 let
-  inherit (builtins) head tail length;
+  inherit (builtins) length filter;
+
+  inherit (lib.lists) take drop;
 in
 {
-  /**
-    Split a list into `init` and `tail` parts.
-
-    - `init` will be at most `n` elements long.
-    - Any overflow is placed into `tail`.
-    - If `n` is negative, it is interpreted relative to the list length
-      (i.e. length + n).
-
-    Returns an attribute set `{ init = [...]; tail = [...] }`.
-  */
   splitAt =
     n: list:
     let
-      n' = if n < 0 then length list + n else n;
-      split =
-        i: list:
-        if i >= n' then
-          list
+      len = length list;
+      n' = if n < 0 then len + n else n;
+      n'' =
+        if n' < 0 then
+          0
+        else if n' > len then
+          len
         else
-          split (i + 1) {
-            init = list.init ++ [ (head list.tail) ];
-            tail = tail list.tail;
-          };
+          n';
     in
-    if n' >= length list then
-      {
-        init = list;
-        tail = [ ];
-      }
-    else
-      split 0 {
-        init = [ ];
-        tail = list;
-      };
+    {
+      init = take n'' list;
+      tail = drop n'' list;
+    };
+
+  filterOut = pred: filter (e: !pred e);
 }

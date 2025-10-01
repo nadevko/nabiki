@@ -3,20 +3,15 @@
   ...
 }:
 let
-  self = import ./lib inputs // {
-    attrsets = import ./lib/attrsets.nix inputs;
-    customisation = import ./lib/customisation.nix inputs;
-    filesystem = import ./lib/filesystem.nix inputs;
-    trivial = import ./lib/trivial.nix inputs;
-    path = import ./lib/path.nix inputs;
-    lists = import ./lib/lists.nix inputs;
-  };
-  inputs = { inherit lib self; };
+  inherit (builtins) readDir attrValues;
+  inherit (lib.fixedPoints) fix;
+  inherit (lib.attrsets) mapAttrs' nameValuePair mergeAttrsList;
+  inherit (lib.strings) removeSuffix;
+  self = fix (
+    final:
+    mapAttrs' (
+      name: _: nameValuePair (removeSuffix ".nix" name) (import ./lib/${name} final lib)
+    ) (readDir ./lib)
+  );
 in
-self.attrsets
-// self.customisation
-// self.filesystem
-// self.trivial
-// self.path
-// self.lists
-// self
+mergeAttrsList (attrValues self) // self

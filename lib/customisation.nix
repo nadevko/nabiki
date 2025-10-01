@@ -1,34 +1,16 @@
-{ self, lib, ... }:
+self: lib:
 let
-  inherit (builtins)
-    getFlake
-    toString
-    attrValues
-    catAttrs
-    ;
+  inherit (lib.meta) availableOn;
+  inherit (lib.attrsets) filterAttrs;
 
-  inherit (self.trivial) fpipe;
-
-  inherit (lib.lists) unique;
+  inherit (self.fixedPoints) recExtends;
 in
 {
-  /**
-    Obtain all `updateScript` attributes from packages.
+  wrapLibExtension = libOverlay: final: prev: {
+    lib = recExtends libOverlay (_: prev.lib) final.lib;
+  };
 
-    This assumes that every package exposes `passthru.updateScript` and that
-    `updateScript` is a derivation (or present) for the packages of the given system.
-
-    Returns a list of unique update scripts.
-  */
-  getUpdateScripts =
-    system:
-    fpipe [
-      toString
-      getFlake
-      (x: x.outputs.packages.${system})
-      attrValues
-      (catAttrs "passthru")
-      (catAttrs "updateScript")
-      unique
-    ];
+  wrapWithAvailabilityCheck =
+    overlay: final: prev:
+    filterAttrs (_: availableOn prev.system) (overlay final prev);
 }

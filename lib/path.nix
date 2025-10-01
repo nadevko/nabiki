@@ -1,26 +1,38 @@
-{ ... }:
+self: lib:
 let
-  inherit (builtins) match head concatStringsSep;
+  inherit (builtins)
+    match
+    head
+    pathExists
+    concatStringsSep
+    ;
+
+  inherit (lib) hasPrefix hasSuffix;
 in
-{
-  /**
-    * Remove file extension from the `name` attribute.
-    *
-    * If `name` has no extension it is left unchanged.
-  */
+rec {
   removeExtension =
-    { name, ... }@entry:
+    name:
     let
       name' = match "(.*)\\.[^.]+$" name;
     in
-    entry // { name = if name' == null then name else head name'; };
+    if name' == null then name else head name';
 
-  /**
-    Set a new node `name` which is the concatenation of `nodes ++ [ name ]`
-    joined with the provided `sep`.
+  concatNodesToNamesSep' =
+    forceFileName: sep:
+    { name, nodes, ... }@e:
+    e
+    // {
+      fullName = concatStringsSep sep (
+        nodes ++ (if forceFileName || nodes == [ ] then [ (removeExtension name) ] else [ ])
+      );
+    };
 
-    Useful when producing flattened names from a node path.
-  */
-  concatNodesSep =
-    sep: { nodes, name, ... }@entry: entry // { name = concatStringsSep sep (nodes ++ [ name ]); };
+  concatNodesToNamesSep = concatNodesToNamesSep' false;
+
+  concatNodesToNames = concatNodesToNames "-";
+
+  isNix = { name, ... }: hasSuffix ".nix" name;
+  isHidden = { name, ... }: hasPrefix "." name;
+  isDirectory = { type, ... }: type == "directory";
+  isImportableNix = { path, ... }@e: isNix e || isDirectory e && pathExists /${path}/default.nix;
 }

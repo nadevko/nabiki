@@ -1,5 +1,5 @@
 {
-  description = "yet another lib with some handy nix functions";
+  description = "lib with some handy nix functions";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
@@ -18,46 +18,31 @@
     }@inputs:
     let
       lib = import ./. { inherit (nixpkgs) lib; };
+      private = nixpkgs.lib.composeExtensions self.overlays.lib (final: prev: { inherit inputs; });
+
+      perPackages =
+        pkgs:
+        let
+          treefmt = treefmt-nix.lib.evalModule pkgs {
+            programs.nixfmt = {
+              enable = true;
+              strict = true;
+            };
+          };
+        in
+        {
+          packages = lib.rebase self.overlays.default pkgs;
+          legacyPackages = pkgs.extend self.overlays.default;
+          formatter = treefmt.config.build.wrapper;
+          checks.treefmt = treefmt.config.build.check self;
+        };
     in
     {
       inherit lib;
-      templates.v1 = {
-        path = ./templates/v1;
-        description = "Template with nabiki v1 usage";
+      overlays = {
+        default = lib.readPackagesOverlay { } private ./pkgs;
+        lib = lib.wrapLibExtension (_: _: lib);
       };
-      defaultTemplate = self.templates.default;
-      __functor = _: lib.attrsets.nestAttrs;
     }
-    // lib.nestAttrs nixpkgs.lib.platforms.all (
-      system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-        treefmt = treefmt-nix.lib.evalModule pkgs {
-          programs.nixfmt = {
-            enable = true;
-            strict = true;
-          };
-        };
-      in
-      {
-        formatter = treefmt.config.build.wrapper;
-        checks.treefmt = treefmt.config.build.check self;
-      }
-    )
-    // lib.nestAttrs nixpkgs.lib.platforms.all (
-      system:
-      builtins.mapAttrs
-        (
-          _: fn:
-          fn {
-            path = ./pkgs;
-            overrides = { inherit inputs; };
-            pkgs = nixpkgs.legacyPackages.${system};
-          }
-        )
-        {
-          packages = lib.readPackages;
-          legacyPackages = lib.readLegacyPackages;
-        }
-    );
+    // lib.mapAttrsNested nixpkgs.legacyPackages perPackages;
 }
