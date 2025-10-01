@@ -51,7 +51,7 @@
           }
         )
         {
-          packages = lib.listPackages;
+          packages = lib.loadPackages;
           # legacyPackages = lib.readLegacyPackages;
         }
     );

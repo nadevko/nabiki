@@ -104,7 +104,7 @@ rec {
       // args
     );
 
-  listPackages =
+  loadPackages =
     {
       separator ? "-",
       namers ? [
