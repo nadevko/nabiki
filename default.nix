@@ -3,10 +3,12 @@
   ...
 }:
 let
-  self = import ./lib inputs // {
+  self = {
     attrsets = import ./lib/attrsets.nix inputs;
     customisation = import ./lib/customisation.nix inputs;
-    filesystem = import ./lib/filesystem.nix inputs;
+    filesystem = import ./lib/filesystem inputs // {
+      filters = import ./lib/filesystem/filters.nix inputs;
+    };
     trivial = import ./lib/trivial.nix inputs;
     path = import ./lib/path.nix inputs;
     lists = import ./lib/lists.nix inputs;

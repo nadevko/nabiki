@@ -2,9 +2,9 @@
 let
   inherit (builtins) readDir concatStringsSep elem;
 
-  inherit (self) isNotUnderscored isNix;
   inherit (self.path) removeExtension;
   inherit (self.trivial) fpipeFlatten fpipe;
+  inherit (self.filesystem.filters) isNotUnderscored isNix;
 
   inherit (lib.attrsets) mergeAttrsList mapAttrsToList recursiveUpdate;
   inherit (lib.lists) flatten filter last;
@@ -64,18 +64,12 @@ rec {
     {
       separator ? "-",
       defaultNix ? "default.nix",
-      packageNix ? "package.nix",
+      lifts ? [
+        defaultNix
+        "package.nix"
+      ],
       namers ? [
-        (
-          nodes:
-          filter (
-            node:
-            !elem node [
-              defaultNix
-              packageNix
-            ]
-          ) nodes
-        )
+        (nodes: filter (node: !elem node lifts) nodes)
         (concatStringsSep separator)
         removeExtension
       ],
@@ -112,7 +106,10 @@ rec {
   loadLegacyPackages =
     {
       defaultNix ? "default.nix",
-      packageNix ? "package.nix",
+      lifts ? [
+        defaultNix
+        "package.nix"
+      ],
       pkgs,
       ...
     }@args:
@@ -120,16 +117,7 @@ rec {
       loadPackages (
         rec {
           namers = [
-            (
-              nodes:
-              filter (
-                node:
-                !elem node [
-                  defaultNix
-                  packageNix
-                ]
-              ) nodes
-            )
+            (nodes: filter (node: !elem node lifts) nodes)
             last
             removeExtension
           ];
