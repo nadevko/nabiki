@@ -5,7 +5,6 @@ let
     pathExists
     readFileType
     concatStringsSep
-    head
     elem
     ;
 
@@ -13,10 +12,9 @@ let
   inherit (self.path) removeExtension;
   inherit (self.attrsets) treeishTraverse;
   inherit (self.trivial) fpipeFlatten fpipe;
-  inherit (self.lists) splitAt;
 
   inherit (lib.attrsets) mergeAttrsList mapAttrsToList recursiveUpdate;
-  inherit (lib.lists) flatten filter;
+  inherit (lib.lists) flatten filter last;
 in
 rec {
   itemiseDir =
@@ -107,40 +105,68 @@ rec {
   loadPackages =
     {
       separator ? "-",
+      defaultNix ? "default.nix",
+      packageNix ? "package.nix",
       namers ? [
-        ({ nodes, ... }: nodes)
         (
           nodes:
-          let
-            split = splitAt (-1) nodes;
-            last = head split.tail;
-          in
-          if
-            elem last [
-              "package.nix"
-              "default.nix"
+          filter (
+            node:
+            !elem node [
+              defaultNix
+              packageNix
             ]
-          then
-            split.init
-          else
-            nodes
+          ) nodes
         )
         (concatStringsSep separator)
         removeExtension
       ],
       importers ? [
-        ({ name, path, ... }: if name == "default.nix" then import path pkgs else pkgs.callPackage path { })
+        (
+          { path, nodes, ... }:
+          mapAttrsToList (name: drv: { ${fpipe namers (nodes ++ [ name ])} = drv; }) (import path pkgs)
+        )
+      ],
+      callers ? [
+        (
+          { path, ... }@entry:
+          {
+            ${fpipe namers entry.nodes} = pkgs.callPackage path { };
+          }
+        )
       ],
       pkgs,
       ...
     }@args:
     listModules (
       {
-        loaders = [ (entry: { ${fpipe namers entry} = fpipe importers entry; }) ];
+        loaders = [
+          ({ name, ... }@entry: fpipe (if name == defaultNix then importers else callers) entry)
+        ];
         mergers = [
           flatten
           mergeAttrsList
         ];
+      }
+      // args
+    );
+
+  loadLegacyPackages =
+    { pkgs }@args:
+    loadPackages (
+      rec {
+        namers = [
+          last
+          removeExtension
+        ];
+        importers = [
+          (
+            { path, nodes, ... }:
+            mapAttrsToList (name: drv: { ${fpipe namers (nodes ++ [ name ])} = drv; }) (import path pkgs)
+          )
+        ];
+        callers = [ ];
+        mergers = [ ];
       }
       // args
     );
