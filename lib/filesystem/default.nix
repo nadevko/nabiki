@@ -1,12 +1,25 @@
 { self, lib, ... }:
 let
-  inherit (builtins) readDir concatStringsSep elem;
+  inherit (builtins)
+    readDir
+    concatStringsSep
+    elem
+    attrValues
+    mapAttrs
+    ;
 
   inherit (self.path) removeExtension;
+  inherit (self.lists) splitAt;
   inherit (self.trivial) fpipeFlatten fpipe;
   inherit (self.filesystem.filters) isNotUnderscored isNix;
 
-  inherit (lib.attrsets) mergeAttrsList mapAttrsToList recursiveUpdate;
+  inherit (lib.attrsets)
+    mergeAttrsList
+    mapAttrsToList
+    recursiveUpdate
+    setAttrByPath
+    filterAttrs
+    ;
   inherit (lib.lists) flatten filter last;
 in
 rec {
@@ -40,12 +53,30 @@ rec {
             }
           ))
           (map (fn: filter fn) filters)
-          (map ({ type, ... }@entry: (if type == "directory" then onDirectory else onFile) entry))
+          (map ({ type, ... }@e: (if type == "directory" then onDirectory else onFile) e))
           mergers
         ] path;
       onFile = fpipe loaders;
     in
     onDirectory { inherit path; };
+
+  readDirRecursive =
+    args:
+    readDirFlattenRecursive (
+      {
+        mergers = [
+          (map (
+            { parent, ... }@e:
+            if parent == null then e else
+            {
+              ${pa} = e;
+            }
+          ))
+          # mergeAttrsList
+        ];
+      }
+      // args
+    );
 
   listModules =
     args:
@@ -95,6 +126,7 @@ rec {
     listModules (
       {
         loaders = [
+          attrValues
           ({ name, ... }@entry: fpipe (if name == defaultNix then importers else callers) entry)
         ];
         mergers = [ mergeAttrsList ];
@@ -104,35 +136,39 @@ rec {
 
   loadLegacyPackages =
     {
+      pkgs,
       defaultNix ? "default.nix",
       lifts ? [
         defaultNix
         "package.nix"
       ],
-      pkgs,
       ...
     }@args:
-    recursiveUpdate pkgs (
-      loadPackages (
-        rec {
-          namers = [
-            (nodes: filter (node: !elem node lifts) nodes)
-            last
-            removeExtension
-          ];
-          importers = [
-            (
-              { path, nodes, ... }:
-              {
-                ${fpipe namers nodes} = import path pkgs;
-              }
+    #  recursiveUpdate pkgs
+    (loadPackages (
+      rec {
+        namers = [
+          (nodes: filter (node: !elem node lifts) nodes)
+          (map removeExtension)
+        ];
+        loaders = [
+          (
+            {
+              name,
+              path,
+              nodes,
+              ...
+            }:
+            setAttrByPath (fpipe namers nodes) (
+              if name == defaultNix then import path pkgs else pkgs.callPackage path { }
             )
-          ];
-          mergers = [ mergeAttrsList ];
-        }
-        // args
-      )
-    );
+          )
+        ];
+        mergers = [ ];
+        inherit pkgs defaultNix lifts;
+      }
+      // args
+    ));
 
   loadLib =
     {
