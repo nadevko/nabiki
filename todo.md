@@ -7,8 +7,8 @@
 ## v1.1
 
 - [X] loadPackages
-- [ ] loadLegacyPackages
-- [ ] loadLib
+- [x] loadLegacyPackages
+- [x] loadLib
 - [ ] loadTests
 - [ ] Generalise
 

@@ -1,56 +1,15 @@
 { self, lib, ... }:
 let
-  inherit (builtins)
-    readDir
-    pathExists
-    readFileType
-    concatStringsSep
-    elem
-    ;
+  inherit (builtins) readDir concatStringsSep elem;
 
   inherit (self) isNotUnderscored isNix;
   inherit (self.path) removeExtension;
-  inherit (self.attrsets) treeishTraverse;
   inherit (self.trivial) fpipeFlatten fpipe;
 
   inherit (lib.attrsets) mergeAttrsList mapAttrsToList recursiveUpdate;
   inherit (lib.lists) flatten filter last;
 in
 rec {
-  itemiseDir =
-    { nodes, value, ... }:
-    mapAttrsToList (name: type: {
-      inherit nodes name type;
-      value = /${value}/${name};
-    }) (readDir value);
-
-  switchDirFile =
-    { onLeaf, onNode, ... }:
-    {
-      name,
-      type,
-      nodes,
-      ...
-    }@entry:
-    if type == "directory" then onNode (entry // { nodes = nodes ++ [ name ]; }) else onLeaf entry;
-
-  readLib =
-    { inputs, ... }@args:
-    treeishTraverse (
-      {
-        filters = [
-          isNotUnderscored
-          isNix
-        ];
-        transformers = [
-          (liftFile "default.nix")
-          removeExtension
-        ];
-        loaders = entry: entry // { value = import entry.value inputs; };
-      }
-      // args
-    );
-
   readDirFlattenRecursive =
     {
       path,
@@ -188,25 +147,36 @@ rec {
       )
     );
 
-  liftFile =
-    file:
+  loadLib =
     {
-      value,
-      nodes,
-      name,
+      defaultNix ? "default.nix",
+      inputs ? { },
       ...
-    }@entry:
+    }@args:
     let
-      value' = /${value}/${file};
+      self = listModules (
+        rec {
+          namers = [
+            (nodes: filter (node: !elem node [ defaultNix ]) nodes)
+            last
+            removeExtension
+          ];
+          loaders = [
+            (
+              { path, nodes, ... }:
+              let
+                fragment = import path inputs';
+              in
+              fragment // (if nodes != [ defaultNix ] then { ${fpipe namers nodes} = fragment; } else { })
+            )
+          ];
+          mergers = [ mergeAttrsList ];
+        }
+        // args
+      );
+      inputs' = inputs // {
+        inherit self;
+      };
     in
-    if pathExists value' then
-      {
-        inherit name nodes;
-        type = readFileType value';
-        dir = value;
-        value = value';
-        liftedAs = file;
-      }
-    else
-      entry;
+    self;
 }
