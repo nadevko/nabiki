@@ -8,7 +8,7 @@ let
     zipAttrsWith
     ;
 
-  inherit (self.trivial) flatPipe flatPipeWith mapPipe;
+  inherit (self.trivial) fpipeFlatten fpipeFlattenWrap fpipeFlattenMap;
   inherit (self.filesystem) itemiseDir switchDirFile;
 
   inherit (lib.lists) init head last;
@@ -29,23 +29,23 @@ rec {
     }@args:
     let
       builder = rec {
-        onNode = flatPipe [
+        onNode = fpipeFlatten [
           readers
           filters
           perNode
           mergers
         ];
-        perNode = mapPipe [
+        perNode = fpipeFlattenMap [
           transformers
           onSwitch
         ];
-        onSwitch = flatPipe' [ switchers ];
-        onLeaf = flatPipe [ loaders ];
+        onSwitch = fpipeFlatten' [ switchers ];
+        onLeaf = fpipeFlatten [ loaders ];
       };
-      flatPipe' = flatPipeWith (map (fn: fn (args // builder)));
+      fpipeFlatten' = fpipeFlattenWrap (map (fn: fn (args // builder)));
     in
-    flatPipe [
-      (flatPipe' [ resolvers ])
+    fpipeFlatten [
+      (fpipeFlatten' [ resolvers ])
       updaters
     ] path;
 

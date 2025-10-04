@@ -8,12 +8,12 @@ in
 rec {
   fpipe = flip pipe;
 
-  flatPipe = fpipe [
+  fpipeFlatten = fpipe [
     flatten
     fpipe
   ];
 
-  flatPipeWith =
+  fpipeFlattenWrap =
     wrap:
     fpipe [
       flatten
@@ -21,7 +21,7 @@ rec {
       fpipe
     ];
 
-  mapPipe = flatPipeWith (map map);
+  fpipeFlattenMap = fpipeFlattenWrap (map map);
 
   deepPipe = fns: fpipe (map (fn: if isList fn then deepPipe fn else fn) fns);
 }

@@ -9,7 +9,14 @@ let
     filesystem = import ./lib/filesystem.nix inputs;
     trivial = import ./lib/trivial.nix inputs;
     path = import ./lib/path.nix inputs;
+    lists = import ./lib/lists.nix inputs;
   };
   inputs = { inherit lib self; };
 in
-self.path // self.attrsets // self.filesystem // self.customisation // self.trivial // self
+self.attrsets
+// self.customisation
+// self.filesystem
+// self.trivial
+// self.path
+// self.lists
+// self

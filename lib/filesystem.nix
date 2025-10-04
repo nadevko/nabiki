@@ -10,7 +10,7 @@ let
   inherit (self) isNotUnderscored isNix;
   inherit (self.path) removeExtension concatNodesSep;
   inherit (self.attrsets) setNameToValue pipelineTraverse treeishTraverse;
-  inherit (self.trivial) mapPipe flatPipe;
+  inherit (self.trivial) fpipeFlattenMap fpipeFlatten;
 
   inherit (lib.attrsets) mergeAttrsList mapAttrsToList recursiveUpdate;
   inherit (lib.lists) flatten;
@@ -178,20 +178,20 @@ rec {
       ...
     }@entry:
     let
-      onContentRead = flatPipe [
+      onContentRead = fpipeFlatten [
         importers
         contentReaders
         onContentLoad
       ];
-      onContentLoad = mapPipe [ loaders ];
+      onContentLoad = fpipeFlattenMap [ loaders ];
     in
     if type == "directory" then
       if pathExists /${value}/${liftedContentFile} then
-        flatPipe [ onLeaf attrValues ] (entry // { value = onContentRead entry; })
+        fpipeFlatten [ onLeaf attrValues ] (entry // { value = onContentRead entry; })
       else
         onNode (entry // { nodes = nodes ++ [ name ]; })
     else
-      onLeaf (flatPipe [ callPackage ] entry)
+      onLeaf (fpipeFlatten [ callPackage ] entry)
   );
 
   readPackages =
