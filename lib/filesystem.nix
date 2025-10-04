@@ -82,12 +82,11 @@ rec {
           ))
           (map (fn: filter fn) filters)
           (map ({ type, ... }@entry: (if type == "directory" then onDirectory else onFile) entry))
+          mergers
         ] path;
       onFile = fpipe loaders;
     in
-    fpipe mergers (onDirectory {
-      inherit path;
-    });
+    onDirectory { inherit path; };
 
   listModules =
     args:
@@ -152,23 +151,41 @@ rec {
     );
 
   loadLegacyPackages =
-    { pkgs }@args:
-    loadPackages (
-      rec {
-        namers = [
-          last
-          removeExtension
-        ];
-        importers = [
-          (
-            { path, nodes, ... }:
-            mapAttrsToList (name: drv: { ${fpipe namers (nodes ++ [ name ])} = drv; }) (import path pkgs)
-          )
-        ];
-        callers = [ ];
-        mergers = [ ];
-      }
-      // args
+    {
+      defaultNix ? "default.nix",
+      packageNix ? "package.nix",
+      pkgs,
+      ...
+    }@args:
+    recursiveUpdate pkgs (
+      loadPackages (
+        rec {
+          namers = [
+            (
+              nodes:
+              filter (
+                node:
+                !elem node [
+                  defaultNix
+                  packageNix
+                ]
+              ) nodes
+            )
+            last
+            removeExtension
+          ];
+          importers = [
+            (
+              { path, nodes, ... }:
+              {
+                ${fpipe namers nodes} = import path pkgs;
+              }
+            )
+          ];
+          mergers = [ mergeAttrsList ];
+        }
+        // args
+      )
     );
 
   liftFile =
@@ -192,36 +209,4 @@ rec {
       }
     else
       entry;
-
-  readLegacyPackages =
-    { pkgs, overrides, ... }@args:
-    treeishTraverse (
-      args
-      // {
-        filters = [
-          isNotUnderscored
-          isNix
-        ];
-        transformers = [
-          (liftFile "package.nix")
-          (liftFile "default.nix")
-          removeExtension
-        ];
-        loaders =
-          {
-            value,
-            liftedAs ? null,
-            ...
-          }@entry:
-          entry
-          // {
-            value =
-              if liftedAs == "default.nix" then
-                import value (pkgs // overrides)
-              else
-                pkgs.callPackage value overrides;
-          };
-        updaters = recursiveUpdate pkgs;
-      }
-    );
 }
