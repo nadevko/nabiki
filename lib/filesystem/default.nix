@@ -62,22 +62,20 @@ rec {
 
   loadPackages =
     {
+      pkgs,
       separator ? "-",
       defaultNix ? "default.nix",
       lifts ? [
         defaultNix
         "package.nix"
       ],
-      namers ? [
-        (nodes: filter (node: !elem node lifts) nodes)
-        (concatStringsSep separator)
-        removeExtension
-      ],
+
       importers ? [
         (
           { path, nodes, ... }:
           mapAttrsToList (name: drv: { ${fpipe namers (nodes ++ [ name ])} = drv; }) (import path pkgs)
         )
+        mergeAttrsList
       ],
       callers ? [
         (
@@ -87,7 +85,11 @@ rec {
           }
         )
       ],
-      pkgs,
+      namers ? [
+        (nodes: filter (node: !elem node lifts) nodes)
+        (concatStringsSep separator)
+        removeExtension
+      ],
       ...
     }@args:
     listModules (
@@ -95,10 +97,7 @@ rec {
         loaders = [
           ({ name, ... }@entry: fpipe (if name == defaultNix then importers else callers) entry)
         ];
-        mergers = [
-          flatten
-          mergeAttrsList
-        ];
+        mergers = [ mergeAttrsList ];
       }
       // args
     );
