@@ -21,6 +21,11 @@
     in
     {
       inherit lib;
+      templates.v1 = {
+        path = ./templates/v1;
+        description = "Template with nabiki v1 usage";
+      };
+      defaultTemplate = self.templates.default;
       __functor = _: lib.attrsets.nestAttrs;
     }
     // lib.nestAttrs nixpkgs.lib.platforms.all (

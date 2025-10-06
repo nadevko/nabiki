@@ -3,6 +3,16 @@ let
   inherit (builtins) head tail length;
 in
 {
+  /**
+    Split a list into `init` and `tail` parts.
+
+    - `init` will be at most `n` elements long.
+    - Any overflow is placed into `tail`.
+    - If `n` is negative, it is interpreted relative to the list length
+      (i.e. length + n).
+
+    Returns an attribute set `{ init = [...]; tail = [...] }`.
+  */
   splitAt =
     n: list:
     let
