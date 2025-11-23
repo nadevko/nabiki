@@ -15,7 +15,7 @@ let
 
   inherit (self.attrsets) nameValuePair';
   inherit (self.filesystem) listDirectory;
-  inherit (self.trivial) fpipe;
+  inherit (self.trivial) fpipe';
   inherit (self.lists) filterOut;
   inherit (self.path)
     isNix
@@ -46,12 +46,12 @@ rec {
 
   readLibOverlayWithShortcuts = readLibOverlay' (
     lib:
-    fpipe [
+    fpipe' [
       attrNames
       (filter (name: isAttrs lib.${name}))
       (concatMap (
         sectionName:
-        fpipe [
+        fpipe' [
           (filterOut (flip elem (lib.${sectionName}._excludeShortcuts or [ ])))
           (map (name: nameValuePair name lib.${sectionName}.${name}))
         ] (lib.${sectionName}._includeShortcuts or attrNames lib.${sectionName})

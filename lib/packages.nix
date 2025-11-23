@@ -13,91 +13,70 @@ let
     ;
 
   inherit (lib.attrsets) mergeAttrsList nameValuePair;
-  inherit (lib.fixedPoints) fix composeExtensions composeManyExtensions;
+  inherit (lib.fixedPoints) fix composeManyExtensions;
   inherit (lib.trivial) flip;
-  inherit (lib.customisation) callPackageWith;
 
   inherit (self.attrsets) mapIntersectedAttrs;
   inherit (self.filesystem) listNixFiles;
-  inherit (self.trivial) fpipe;
+  inherit (self.trivial) fpipe';
   inherit (self.path) concatNodesToNamesSep;
-  inherit (self.customisation) wrapWithAvailabilityCheck;
 in
 rec {
   readPackagesOverlayBase =
-    targets: sep: overrides: private: path:
+    targets: sep: path:
     let
-      overlay =
+      g =
         final: prev:
-        let
-          pkgs = prev.extend (composeExtensions private overlay);
-          final' = final // rec {
-            callPackage = callPackageWith pkgs;
-            callPackage' = name: flip callPackage (overrides.${name} or { });
-          };
-        in
-        fpipe [
+        fpipe' [
           listNixFiles
           (map (concatNodesToNamesSep sep))
           (groupBy ({ name, ... }: name))
-          (mapIntersectedAttrs (_: targets: targets final' prev) targets)
+          (mapIntersectedAttrs (_: targets: targets final prev) targets)
           attrValues
           mergeAttrsList
         ] path;
     in
-    overlay;
+    g;
 
   readPackagesOverlaySep = readPackagesOverlayBase {
-    "package.nix" = callFirstAsPackage;
-    "overlay.nix" = loadAllAsOverlay;
-    "builder.nix" = callFirstAsOverlay;
+    "package.nix" = makePackageNixExtension;
+    "overlay.nix" = makeOverlayNixExtension;
   };
   readPackagesOverlay = readPackagesOverlaySep "-";
 
-  readCheckedPackagesOverlaySep = readPackagesOverlayBase {
-    "package.nix" = wrapWithAvailabilityCheck callFirstAsPackage;
-    "overlay.nix" = wrapWithAvailabilityCheck loadAllAsOverlay;
-    "builder.nix" = callFirstAsOverlay;
-  };
-  readCheckedPackagesOverlay = readCheckedPackagesOverlaySep "-";
+  groupUniqueByFullName = fpipe' [
+    (groupBy ({ fullName, ... }: fullName))
+    (mapAttrs (_: head))
+  ];
 
-  callFirstAsPackage =
+  makePackageNixExtension =
     final: prev:
-    fpipe [
-      (groupBy ({ fullName, ... }: fullName))
-      (mapAttrs (_: head))
+    fpipe' [
+      groupUniqueByFullName
       (mapAttrs (name: { path, ... }: final.callPackage' name path))
     ];
 
-  loadAllAsOverlay =
+  makeOverlayNixExtension =
     final: prev:
-    fpipe [
+    fpipe' [
       (catAttrs "path")
       (map import)
       composeManyExtensions
-      (overlay: overlay final prev)
+      (g: g final prev)
     ];
 
-  callFirstAsOverlay =
-    final: prev:
-    fpipe [
-      (groupBy ({ fullName, ... }: fullName))
-      (mapAttrs (_: head))
-      (mapAttrs (name: { path, ... }: import path final prev))
-    ];
-
-  readDevShellsOverlaySep = readPackagesOverlayBase { "shell.nix" = callFirstAsPackage; };
+  readDevShellsOverlaySep = readPackagesOverlayBase { "shell.nix" = makePackageNixExtension; };
   readDevShellsOverlay = readDevShellsOverlaySep "-";
 
-  readCheckOverlaySep = readPackagesOverlayBase { "check.nix" = callFirstAsPackage; };
+  readCheckOverlaySep = readPackagesOverlayBase { "check.nix" = makePackageNixExtension; };
   readCheckOverlay = readCheckOverlaySep "-";
 
-  readHydraJobsOverlaySep = readPackagesOverlayBase { "hydraJob.nix" = callFirstAsPackage; };
+  readHydraJobsOverlaySep = readPackagesOverlayBase { "hydraJob.nix" = makePackageNixExtension; };
   readHydraJobsOverlay = readHydraJobsOverlaySep "-";
 
   readOverlaysSep =
     sep:
-    fpipe [
+    fpipe' [
       listNixFiles
       (map (concatNodesToNamesSep sep))
       (map ({ fullName, path, ... }: nameValuePair fullName path))
@@ -105,7 +84,7 @@ rec {
     ];
   readOverlays = readOverlaysSep "-";
 
-  readAppsOverlaySep = readPackagesOverlayBase { "app.nix" = callFirstAsPackage; };
+  readAppsOverlaySep = readPackagesOverlayBase { "app.nix" = makePackageNixExtension; };
   readAppsOverlay = readAppsOverlaySep "-";
   getApps =
     common: locals: overrides: private: path: prev:
@@ -126,7 +105,7 @@ rec {
     in
     intersection
     // removeAttrs locals (attrNames intersection)
-    // fpipe [
+    // fpipe' [
       (flip removeAttrs (attrNames intersection))
       (mapAttrs (_: app: common // { program = getProgram app; }))
     ] apps;
