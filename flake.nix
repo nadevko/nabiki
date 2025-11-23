@@ -15,10 +15,9 @@
       self,
       nixpkgs,
       treefmt-nix,
-    }@inputs:
+    }:
     let
       lib = import ./. { inherit (nixpkgs) lib; };
-      private = nixpkgs.lib.composeExtensions self.overlays.lib (final: prev: { inherit inputs; });
 
       perPackages =
         pkgs:
@@ -40,7 +39,7 @@
     {
       inherit lib;
       overlays = {
-        default = lib.readPackagesOverlay { } private ./pkgs;
+        default = lib.readPackagesOverlay ./pkgs;
         lib = lib.wrapLibExtension (_: _: lib);
       };
     }

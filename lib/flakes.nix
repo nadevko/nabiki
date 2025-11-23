@@ -5,16 +5,16 @@ let
   inherit (lib.attrsets) nameValuePair;
 
   inherit (self.filesystem) listDirectory listNixFiles;
-  inherit (self.trivial) fpipe;
+  inherit (self.trivial) fpipe' compose;
   inherit (self.lists) filterOut;
   inherit (self.path) isDirectory isHidden concatNodesToNamesSep';
 in
 rec {
-  listModulesFlatten = path: catAttrs "path" (listNixFiles path);
+  listModulesFlatten = compose (catAttrs "path") listNixFiles;
 
   getModulesFlattenSep =
     sep:
-    fpipe [
+    fpipe' [
       listNixFiles
       (map (concatNodesToNamesSep' true sep))
       (map ({ fullName, path, ... }: nameValuePair fullName path))
@@ -25,7 +25,7 @@ rec {
 
   getConfigurations' =
     builder: common: local:
-    fpipe [
+    fpipe' [
       listDirectory
       (filterOut isHidden)
       (filter isDirectory)

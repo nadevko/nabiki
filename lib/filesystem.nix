@@ -10,7 +10,7 @@ let
   inherit (lib.lists) filter reverseList;
   inherit (lib.fixedPoints) composeExtensions;
 
-  inherit (self.trivial) fpipe;
+  inherit (self.trivial) fpipe' compose;
   inherit (self.lists) filterOut;
   inherit (self.path) isHidden isDirectory isImportableNix;
 in
@@ -22,11 +22,11 @@ rec {
       path = /${path}/${name};
     }) (readDir path);
 
-  listDirectory = path: attrValues (readDirectory path);
+  listDirectory = compose attrValues readDirectory;
 
   readOverlaysDirectory =
     reader:
-    fpipe [
+    fpipe' [
       listDirectory
       (filterOut isHidden)
       (filter isDirectory)
@@ -39,7 +39,7 @@ rec {
     let
       onDirectory =
         nodes:
-        fpipe [
+        fpipe' [
           listDirectory
           (filterOut isHidden)
           (concatMap (

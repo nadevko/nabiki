@@ -3,51 +3,56 @@ let
   inherit (lib.fixedPoints) fix';
   inherit (lib.attrsets) recursiveUpdate;
   inherit (lib.lists) foldr;
-  inherit (lib.trivial) flip;
+  inherit (lib.trivial) flip mergeAttrs;
+
+  inherit (self.trivial) compose;
 in
 rec {
   extendsWith =
-    merger: overlay: fixedPoint: final:
+    merger: g: f: final:
     let
-      prev = fixedPoint final;
+      prev = f final;
     in
-    merger prev (overlay final prev);
+    merger prev (g final prev);
 
   composeExtensionsWith =
-    merger: baseOverlay: overrideOverlay: final: prev:
+    merger: gBase: gOverride: final: prev:
     let
-      base = baseOverlay final prev;
-      overridePrev = merger prev base;
+      base = gBase final prev;
     in
-    merger base (overrideOverlay final overridePrev);
+    merger base (gOverride final (merger prev base));
 
   composeExtensionsListWith = flip foldr (final: prev: { });
 
   makeExtensibleWith =
-    extender: extenderName: fixedPoint:
-    fix' (
-      self:
-      fixedPoint self
-      // {
-        ${extenderName} = extender (makeExtensibleWith extender extenderName) fixedPoint;
-      }
-    );
+    extender: extenderName: f:
+    fix' (self: f self // { ${extenderName} = extender (makeExtensibleWith extender extenderName) f; });
 
   recExtends = extendsWith recursiveUpdate;
   composeRecExtensions = composeExtensionsWith recursiveUpdate;
   composeRecExtensionsList = composeExtensionsListWith composeRecExtensions;
   makeRecExtensibleWithCustomName = makeExtensibleWith (
-    makeExtensible: fixedPoint: overlay:
-    makeExtensible (recExtends overlay fixedPoint)
+    makeExtensible: f: compose makeExtensible (flip recExtends f)
   );
   makeRecExtensible = makeRecExtensibleWithCustomName "recExtend";
 
   rebase =
-    overlay: prev:
+    g: prev:
     let
-      final = overlay final prev;
+      final = g final prev;
     in
     final;
 
-  rebase' = overlay: prev: rebase overlay prev // { __unfix__ = prev; };
+  rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
+
+  composePrivateWith =
+    merger: private: public: final: prev:
+    let
+      prev' = merger prev (private final' prev');
+      final' = merger prev' final;
+    in
+    public final' prev';
+
+  composePrivate = composePrivateWith mergeAttrs;
+  composeRecPrivate = composePrivateWith recursiveUpdate;
 }
