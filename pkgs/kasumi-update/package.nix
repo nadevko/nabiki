@@ -1,11 +1,11 @@
 {
   inputs ? { },
-  nixpkgs ? inputs.nixpkgs,
+  nixpkgs ? inputs.nixpkgs or <nixpkgs>,
   writeShellApplication,
-  system,
+  stdenvNoCC,
 }:
 writeShellApplication {
-  name = "nabiki-update";
+  name = "kasumi-update";
   text = ''
     target="''${1:-packages}"
     flake="$(realpath "''${2:-$PWD}")"
@@ -19,7 +19,7 @@ writeShellApplication {
         pkgs = import ${nixpkgs} { };
         paths = pkgs.lib.trivial.pipe \"$flake\" [
           builtins.getFlake
-          (x: x.outputs.''${target}.${system})
+          (x: x.outputs.''${target}.${stdenvNoCC.hostPlatform.system})
           builtins.attrValues
           (builtins.catAttrs \"passthru\")
           (builtins.catAttrs \"updateScript\")
@@ -27,7 +27,7 @@ writeShellApplication {
         ];
       in
       pkgs.symlinkJoin {
-        name = \"nabiki-update\";
+        name = \"kasumi-update\";
         inherit paths;
       }
     "

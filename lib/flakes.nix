@@ -1,43 +1,161 @@
 self: lib:
 let
-  inherit (builtins) listToAttrs filter catAttrs;
+  inherit (builtins)
+    attrNames
+    readDir
+    mapAttrs
+    isFunction
+    ;
 
-  inherit (lib.attrsets) nameValuePair;
+  inherit (lib.attrsets) filterAttrs;
+  inherit (lib.fileset) toList;
+  inherit (lib.trivial) pipe flip;
+  inherit (lib.meta) getExe;
+  inherit (lib.strings) hasPrefix;
 
-  inherit (self.filesystem) listDirectory listNixFiles;
-  inherit (self.trivial) fpipe' compose;
-  inherit (self.lists) filterOut;
-  inherit (self.path) isDirectory isHidden concatNodesToNamesSep';
+  inherit (self.attrsets)
+    addAliasesToAttrs
+    genTransposed
+    genTransposedAs
+    mapAttrsIntersection
+    ;
+  inherit (self.fileset) toFlattenAttrsWith dirFilter toExtension;
+  inherit (self.trivial) compose fpipe';
+  inherit (self.customisation) genFromNixpkgsFor triComposeScope fixScope;
+  inherit (self.fixedPoints) rebase;
 in
 rec {
-  listModulesFlatten = compose (catAttrs "path") listNixFiles;
+  mkflake =
+    {
+      inputs ? { },
 
-  getModulesFlattenSep =
-    sep:
-    fpipe' [
-      listNixFiles
-      (map (concatNodesToNamesSep' true sep))
-      (map ({ fullName, path, ... }: nameValuePair fullName path))
-      listToAttrs
+      self ? inputs.self,
+      selfConfig ? null,
+      perSelfPackages ? pkgs: { },
+
+      nixpkgs ? inputs.nixpkgs,
+      nixpkgsConfig ? null,
+      perPackages ? pkgs: { },
+
+      systems ? attrNames nixpkgs.legacyPackages,
+      perSystem ? system: { },
+
+      treefmt ? inputs.treefmt or null,
+      treefmtConfig ? {
+        programs.nixfmt = {
+          enable = true;
+          strict = true;
+        };
+      },
+      ...
+    }@flake:
+    genFromNixpkgsFor self selfConfig systems perSelfPackages
+    // genFromNixpkgsFor nixpkgs nixpkgsConfig systems perPackages
+    // genTransposed systems perSystem
+    // (
+      if treefmt == null then
+        { }
+      else
+        genTransposedAs (system: treefmt.lib.evalModule nixpkgs.legacyPackages.${system} treefmtConfig)
+          [ "aarch64-darwin" "aarch64-linux" "i686-linux" "x86_64-darwin" "x86_64-linux" ]
+          (treefmt: {
+            formatter = treefmt.config.build.wrapper;
+            checks.treefmt = treefmt.config.build.check self;
+          })
+    )
+    // removeAttrs flake [
+      "inputs"
+
+      "treefmt"
+      "treefmtConfig"
+
+      "selfConfig"
+      "perSelfPackages"
+
+      "nixpkgs"
+      "nixpkgsConfig"
+      "perPackages"
+
+      "systems"
+      "perSystem"
     ];
 
-  readModulesFlatten = getModulesFlattenSep "-";
+  listModules = compose toList (dirFilter ({ isNixRec, ... }: isNixRec));
 
-  getConfigurations' =
-    builder: common: local:
+  flatifyModulesWith =
+    args: compose (toFlattenAttrsWith args) (dirFilter ({ isNixRec, ... }: isNixRec));
+  flatifyModulesSep = sep: flatifyModulesWith { inherit sep; };
+  flatifyModules = flatifyModulesWith { };
+
+  readLibExtension = compose toExtension (dirFilter ({ isNixRec, ... }: isNixRec));
+  getLib = path: compose addAliasesToAttrs (rebase (readLibExtension path));
+
+  makeConfigurationGetter =
+    builder: configBase: perConfig:
     fpipe' [
-      listDirectory
-      (filterOut isHidden)
-      (filter isDirectory)
-      (map ({ name, ... }@e: nameValuePair name (builder (common // local.${name} or { }) e)))
-      listToAttrs
+      readDir
+      (filterAttrs (name: type: !hasPrefix "." name && type == "directory"))
+      (mapAttrs (name: _: builder (configBase // perConfig.${name} or { })))
     ];
 
   getConfigurations =
     builder:
-    getConfigurations' (
-      args: { path, ... }: builder (args // { modules = listModulesFlatten path ++ args.modules or [ ]; })
+    makeConfigurationGetter (
+      args: { path, ... }: builder (args // { modules = listModules path ++ args.modules or [ ]; })
     );
 
-  getTemplates = getConfigurations' (args: { path, ... }: (args // { inherit path; }));
+  getTemplates = makeConfigurationGetter (args: { path, ... }: (args // { inherit path; }));
+
+  readPackagesExtensionWith =
+    {
+      packageBase ? { },
+      perPackage ? { },
+      caller ? final: prev: { },
+      ...
+    }@args:
+    path: final: prev:
+    pipe path [
+      (dirFilter ({ isNixRec, ... }: isNixRec))
+      (toFlattenAttrsWith ({ liftsOnly = true; } // args))
+      (mapAttrs (
+        name:
+        flip ((caller final prev).${name} or final.callPackage) (packageBase // perPackage.${name} or { })
+      ))
+    ];
+
+  readPackagesExtension = readPackagesExtensionWith { lifts = [ "package.nix" ]; };
+  readDevShellExtension = readPackagesExtensionWith { lifts = [ "shell.nix" ]; };
+  readCheckExtension = readPackagesExtensionWith { lifts = [ "check.nix" ]; };
+  readHydraJobsExtension = readPackagesExtensionWith { lifts = [ "hydra.nix" ]; };
+  readAppsExtension = readPackagesExtensionWith { lifts = [ "app.nix" ]; };
+
+  getAppsFromExtension =
+    {
+      path,
+      appBase ? {
+        type = "app";
+      },
+      perApp ? { },
+      packages ? fixScope scope,
+      scope ? triComposeScope private extension overrides,
+      private ? _: _: { },
+      extension ? readAppsExtension args path,
+      overrides ? _: _: { },
+      ...
+    }@args:
+    let
+      perApp' = mapAttrs (_: app: appBase // app) perApp;
+      intersection = mapAttrsIntersection (
+        name: package: app:
+        app
+        // {
+          program =
+            let
+              program' = app.program or appBase.program or getExe package;
+            in
+            if isFunction program' then program' package else program';
+        }
+      ) packages perApp';
+    in
+    mapAttrs (_: package: appBase // { program = getExe package; }) packages // perApp' // intersection;
 }

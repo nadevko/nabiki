@@ -46,12 +46,12 @@ rec {
   rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
 
   composePrivateWith =
-    merger: private: public: final: prev:
+    merger: gPrivate: gPublic: final: prev:
     let
-      prev' = merger prev (private final' prev');
+      prev' = merger prev (gPrivate final' prev');
       final' = merger prev' final;
     in
-    public final' prev';
+    gPublic final' prev';
 
   composePrivate = composePrivateWith mergeAttrs;
   composeRecPrivate = composePrivateWith recursiveUpdate;

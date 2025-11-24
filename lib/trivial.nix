@@ -1,14 +1,13 @@
 self: lib:
 let
-  inherit (lib.trivial) pipe flip;
-  inherit (lib.lists) foldr;
+  inherit (lib.trivial) flip pipe;
+  inherit (lib.lists) foldl;
 in
-rec {
+{
   compose =
     f: g: x:
     f (g x);
 
   fpipe' = flip pipe;
-
-  fpipe = flip (foldr compose);
+  fpipe = flip (foldl (x: f: f x));
 }

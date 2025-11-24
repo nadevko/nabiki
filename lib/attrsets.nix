@@ -7,24 +7,29 @@ let
     length
     elemAt
     attrNames
-    concatLists
     intersectAttrs
+    groupBy
     zipAttrsWith
+    attrValues
+    listToAttrs
+    concatMap
+    removeAttrs
+    filter
+    elem
+    partition
     ;
-  inherit (lib.attrsets) foldAttrs mapAttrsToList mergeAttrsList;
-  inherit (lib.trivial) flip;
+  inherit (lib.attrsets)
+    nameValuePair
+    genAttrs
+    mapAttrsToList
+    mergeAttrsList
+    ;
+  inherit (lib.trivial) flip mergeAttrs pipe;
 
-  inherit (self.trivial) fpipe';
+  inherit (self.trivial) compose;
+  inherit (self.lists) filterOut;
 in
 rec {
-  nestAttrs' =
-    reader: roots: generator:
-    zipAttrsWith (_: mergeAttrsList) (
-      map (root: mapAttrs (_: value: { ${root} = value; }) (generator (reader root))) roots
-    );
-  nestAttrs = nestAttrs' (x: x);
-  mapAttrsNested = set: nestAttrs' (name: set.${name}) (attrNames set);
-
   nearestAttrByPath =
     nodesPath: pattern:
     let
@@ -40,15 +45,62 @@ rec {
     in
     iterator 0;
 
-  transposeStringMatrix = fpipe' [
-    (mapAttrsToList (name: map (flip nameValuePair' name)))
-    concatLists
-    (foldAttrs (name: acc: [ name ] ++ acc) [ ])
-  ];
+  transposeAttrs =
+    attrs:
+    zipAttrsWith (_: listToAttrs) (
+      attrValues (mapAttrs (root: mapAttrs (_: nameValuePair root)) attrs)
+    );
 
-  mapIntersectedAttrs =
+  genTransposedAs =
+    reader: roots: generator:
+    transposeAttrs (genAttrs roots (compose generator reader));
+
+  genTransposed = genTransposedAs (x: x);
+
+  genTransposedFrom' = compose (flip genTransposedAs) attrNames;
+  genTransposedFrom = set: genTransposedFrom' set (attr: set.${attr});
+
+  mapAttrsIntersection =
     pred: left: right:
     mapAttrs (name: pred name left.${name}) (intersectAttrs left right);
 
   nameValuePair' = name: value: { ${name} = value; };
+
+  addAliasesToAttrs =
+    set:
+    let
+      defaultExcludes = [
+        "_includeAlias"
+        "_excludeAlias"
+      ];
+    in
+    pipe set [
+      attrValues
+      (filter isAttrs)
+      (concatMap (
+        {
+          _includeAlias ? attrNames sub,
+          _excludeAlias ? defaultExcludes,
+          ...
+        }@sub:
+        if isAttrs _excludeAlias then
+          _includeAlias
+        else
+          map (name: nameValuePair name sub.${name}) (filterOut (flip elem _excludeAlias) _includeAlias)
+      ))
+      listToAttrs
+      (flip mergeAttrs (
+        mapAttrs (_: value: if isAttrs value then removeAttrs value defaultExcludes else value) set
+      ))
+    ];
+
+  partitionAttrs =
+    pred: set:
+    mapAttrs (_: listToAttrs) (
+      partition ({ name, value }: pred name value) (mapAttrsToList nameValuePair set)
+    );
+
+  listToMergedAttrs = compose (mapAttrs (_: compose mergeAttrsList (map ({ value, ... }: value)))) (
+    groupBy ({ name, ... }: name)
+  );
 }

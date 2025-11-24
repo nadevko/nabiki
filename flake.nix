@@ -4,44 +4,35 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
-    treefmt-nix = {
+    treefmt = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      treefmt-nix,
-    }:
+    { self, nixpkgs, ... }@inputs:
     let
-      lib = import ./. { inherit (nixpkgs) lib; };
-
-      perPackages =
-        pkgs:
-        let
-          treefmt = treefmt-nix.lib.evalModule pkgs {
-            programs.nixfmt = {
-              enable = true;
-              strict = true;
-            };
-          };
-        in
-        {
-          packages = lib.rebase self.overlays.default pkgs;
-          legacyPackages = pkgs.extend self.overlays.default;
-          formatter = treefmt.config.build.wrapper;
-          checks.treefmt = treefmt.config.build.check self;
-        };
-    in
-    {
-      inherit lib;
-      overlays = {
-        default = lib.readPackagesOverlay ./pkgs;
-        lib = lib.wrapLibExtension (_: _: lib);
+      lib = import ./lib.nix {
+        inherit (nixpkgs) lib;
+        fileset-internal = import "${nixpkgs}/lib/fileset/internal.nix" { inherit (nixpkgs) lib; };
       };
-    }
-    // lib.mapAttrsNested nixpkgs.legacyPackages perPackages;
+    in
+    lib.mkflake {
+      inherit lib inputs;
+      overlays = {
+        default = lib.readPackagesExtension ./pkgs;
+        lib = lib.wrapLibExtension (_: _: lib);
+        _private = _: _: { inherit inputs; };
+        _overrides = _: prev: { default = prev.kasumi-update; };
+      };
+      perPackages = pkgs: rec {
+        packages = lib.fixScope scopes.default;
+        defaultPackage = packages.default;
+        scopes.default = with self.overlays; lib.triComposeScope pkgs.newScope _private default _overrides;
+        defaultScope = scopes.default;
+        legacyPackages = pkgs.extend (_: _: packages);
+      };
+      __functor = lib.mkflake;
+    };
 }

@@ -1,29 +1,40 @@
 self: lib:
 let
-  inherit (lib.fixedPoints) extends;
+  inherit (builtins) attrNames isFunction foldl';
+  inherit (lib.fixedPoints) fix';
+  inherit (lib.trivial) flip;
+  inherit (lib.customisation) makeScope;
 
   inherit (self.fixedPoints) recExtends;
+  inherit (self.attrsets) genTransposedAs;
 in
 rec {
-  wrapLibExtension = g: final: prev: {
-    lib = recExtends g (_: prev.lib) final.lib // {
-      __unfix__ = prev.lib;
-    };
-  };
+  genFromNixpkgsFor =
+    nixpkgs: config:
+    genTransposedAs (
+      system:
+      if config == null then
+        nixpkgs.legacyPackages.${system}
+      else if isFunction config then
+        import nixpkgs (config system)
+      else
+        import nixpkgs (config // { inherit system; })
+    );
 
-  makeScope' =
-    extraProtected: newScope: fPublic:
-    let
-      self = fPublic self // protected;
-      protected = extraProtected {
-        newScope = private: newScope (self // private);
-        callPackage = self.newScope { };
-        overrideScope' = extraProtected: g: makeScope' extraProtected newScope (extends g fPublic);
-        overrideScope = self.overrideScope' { };
-        packages = fPublic;
-      };
-    in
-    self;
+  genFromNixpkgs =
+    nixpkgs: config: genFromNixpkgsFor nixpkgs config (attrNames nixpkgs.legacyPackages);
 
-  makeScope = makeScope' { };
+  wrapLibExtension = g: final: prev: { lib = fix' (recExtends (_: _: prev.lib) (flip g prev.lib)); };
+
+  makeScopeFromExtension = newScope: (makeScope newScope (_: { })).overrideScope;
+  composeScopeFromExtensionList =
+    newScope: foldl' ({ newScope, ... }: makeScopeFromExtension newScope) (makeScope newScope (_: { }));
+  triComposeScope =
+    newScope: private: public: overrides:
+    (composeScopeFromExtensionList newScope [
+      private
+      public
+    ]).overrideScope
+      overrides;
+  fixScope = scope: scope.packages scope;
 }
