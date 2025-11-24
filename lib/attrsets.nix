@@ -9,6 +9,7 @@ let
     attrNames
     concatLists
     intersectAttrs
+    zipAttrsWith
     ;
   inherit (lib.attrsets) foldAttrs mapAttrsToList mergeAttrsList;
   inherit (lib.trivial) flip;
@@ -18,7 +19,7 @@ in
 rec {
   nestAttrs' =
     reader: roots: generator:
-    mergeAttrsList (
+    zipAttrsWith (_: mergeAttrsList) (
       map (root: mapAttrs (_: value: { ${root} = value; }) (generator (reader root))) roots
     );
   nestAttrs = nestAttrs' (x: x);
