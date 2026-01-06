@@ -9,7 +9,7 @@ let
 
   inherit (lib.attrsets) filterAttrs;
   inherit (lib.fileset) toList;
-  inherit (lib.trivial) pipe flip;
+  inherit (lib.trivial) flip;
   inherit (lib.meta) getExe;
   inherit (lib.strings) hasPrefix;
 
@@ -106,22 +106,24 @@ rec {
 
   getTemplates = makeConfigurationGetter (args: { path, ... }: (args // { inherit path; }));
 
+  readDirAsFlattenAttrsWith =
+    args:
+    compose (toFlattenAttrsWith ({ liftsOnly = true; } // args)) (
+      dirFilter ({ isNixRec, ... }: isNixRec)
+    );
+
   readPackagesExtensionWith =
     {
       packageBase ? { },
       perPackage ? { },
-      caller ? final: prev: { },
+      callers ? final: prev: { },
       ...
     }@args:
     path: final: prev:
-    pipe path [
-      (dirFilter ({ isNixRec, ... }: isNixRec))
-      (toFlattenAttrsWith ({ liftsOnly = true; } // args))
-      (mapAttrs (
-        name:
-        flip ((caller final prev).${name} or final.callPackage) (packageBase // perPackage.${name} or { })
-      ))
-    ];
+    mapAttrs (
+      name:
+      flip ((callers final prev).${name} or final.callPackage) (packageBase // perPackage.${name} or { })
+    ) (readDirAsFlattenAttrsWith args path);
 
   readPackagesExtension = readPackagesExtensionWith { lifts = [ "package.nix" ]; };
   readDevShellExtension = readPackagesExtensionWith { lifts = [ "shell.nix" ]; };
