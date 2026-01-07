@@ -9,11 +9,14 @@
     { self, nixpkgs, ... }:
     let
       lib = import ./lib.nix { inherit (nixpkgs) lib; };
+      unscope = lib.readPackagesScope ./pkgs [ "package.nix" ] (self.overlays.private { });
     in
     {
       inherit lib;
       overlays = {
-        default = lib.readPackagesOverlay ./pkgs [ "package.nix" ] (self.overlays.private { });
+        default = self.overlays.packages;
+        packages = lib.unscopeToOverlay unscope;
+        packages' = lib.unscopeToOverlay' unscope;
         private = _: _: { inherit nixpkgs; };
         lib = lib.wrapLibOverlay (_: _: lib);
       };
@@ -21,10 +24,14 @@
         default.description = "Most common kasumi usage";
       }) ./templates;
     }
-    // lib.genFromNixpkgs nixpkgs null (pkgs: {
-      packages =
-        lib.rebase self.overlays.default
-          nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
-      legacyPackages = pkgs.extend self.overlays.default;
-    });
+    // lib.genFromPkgs nixpkgs null (
+      pkgs:
+      let
+        kasumi = unscope pkgs.newScope;
+      in
+      {
+        packages = lib.rebaseScope kasumi;
+        legacyPackages = pkgs.extend self.overlays.packages';
+      }
+    );
 }

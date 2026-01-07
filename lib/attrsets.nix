@@ -1,7 +1,6 @@
 self: lib:
 let
   inherit (builtins)
-    hasAttr
     isAttrs
     zipAttrsWith
     listToAttrs
@@ -30,15 +29,15 @@ rec {
       find =
         currentSet: path: currentDeepest:
         if path == [ ] then
-          (if isAttrs currentSet && hasAttr pattern currentSet then currentSet.${pattern} else currentDeepest)
+          (if isAttrs currentSet && currentSet ? pattern then currentSet.${pattern} else currentDeepest)
         else
           let
             head = builtins.head path;
             tail = builtins.tail path;
             newDeepest =
-              if isAttrs currentSet && hasAttr pattern currentSet then currentSet.${pattern} else currentDeepest;
+              if isAttrs currentSet && currentSet ? pattern then currentSet.${pattern} else currentDeepest;
           in
-          if isAttrs currentSet && hasAttr head currentSet then
+          if isAttrs currentSet && currentSet ? head then
             find currentSet.${head} tail newDeepest
           else
             newDeepest;

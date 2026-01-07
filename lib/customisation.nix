@@ -2,27 +2,25 @@ self: lib:
 let
   inherit (builtins) attrNames isFunction;
   inherit (lib.fixedPoints) fix';
-  inherit (lib.trivial) flip min;
-  inherit (lib.lists) sortOn indexOf;
+  inherit (lib.trivial) flip;
 
   inherit (self.attrsets) genTransposedAs;
   inherit (self.fixedPoints) recExtends;
 in
 rec {
-  genFromNixpkgsFor =
-    nixpkgs: config:
+  genFromPkgsFor =
+    pkgs: config:
     genTransposedAs (
       system:
       if config == null then
-        nixpkgs.legacyPackages.${system}
+        pkgs.legacyPackages.${system}
       else if isFunction config then
-        import nixpkgs (config system)
+        import pkgs (config system)
       else
-        import nixpkgs (config // { inherit system; })
+        import pkgs (config // { inherit system; })
     );
 
-  genFromNixpkgs =
-    nixpkgs: config: genFromNixpkgsFor nixpkgs config (attrNames nixpkgs.legacyPackages);
+  genFromPkgs = pkgs: config: genFromPkgsFor pkgs config (attrNames pkgs.legacyPackages);
 
   wrapLibOverlay = g: final: prev: { lib = fix' (recExtends (_: _: prev.lib) (flip g prev.lib)); };
 
@@ -30,5 +28,20 @@ rec {
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
 
-  ensureDerivationOrder = targets: sortOn ({type, ...}: min 999 (indexOf type targets));
+  rebaseScope = scope: scope.packages scope;
+  rebaseUnscope = unscope: pkgs: rebaseScope (unscope pkgs.newScope);
+
+  unscopeToOverlay =
+    unscope: final: prev:
+    let
+      scope = unscope prev.newScope;
+    in
+    rebaseScope scope;
+
+  unscopeToOverlay' =
+    name: unscope: final: prev:
+    let
+      scope = unscope prev.newScope;
+    in
+    { ${name} = scope; } // rebaseScope scope;
 }

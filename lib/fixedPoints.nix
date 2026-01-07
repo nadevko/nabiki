@@ -39,7 +39,7 @@ rec {
   rebase =
     g: prev:
     let
-      final = g final prev;
+      final = g (prev // final) prev;
     in
     final;
 

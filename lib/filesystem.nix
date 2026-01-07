@@ -5,15 +5,16 @@ let
     concatLists
     listToAttrs
     elem
+    filter
     ;
 
   inherit (lib.path) append;
-  inherit (lib.attrsets) nameValuePair mapAttrsToList;
+  inherit (lib.attrsets) nameValuePair mapAttrsToList genAttrs;
   inherit (lib.customisation) makeScope;
-  inherit (lib.trivial) pipe;
+  inherit (lib.trivial) pipe flip;
 
   inherit (self.attrsets) addAliasesToAttrs;
-  inherit (self.customisation) ensureDerivationOrder;
+  inherit (self.customisation) unscopeToOverlay unscopeToOverlay';
   inherit (self.path)
     removeExtension
     isHidden
@@ -126,8 +127,8 @@ rec {
 
   readTemplates = readConfigurationDir (filePath: config: config // { path = filePath; });
 
-  listByNameDirWithDefaultType =
-    defaultType: root:
+  listFlatDrvDirWithDefaultType =
+    defaultTarget: root:
     scanDir root (
       path: name: type:
       if type == "directory" then
@@ -137,7 +138,7 @@ rec {
             [
               {
                 inherit name;
-                type = removeExtension subName;
+                target = subName;
                 value = subPath;
               }
             ]
@@ -148,7 +149,7 @@ rec {
         [
           {
             name = removeExtension name;
-            type = defaultType;
+            target = defaultTarget;
             value = path;
           }
         ]
@@ -156,28 +157,28 @@ rec {
         [ ]
     );
 
-  listByNameDir = listByNameDirWithDefaultType "package.nix";
+  listFlatDrvDir = listFlatDrvDirWithDefaultType "package.nix";
 
   readPackagesFixedPoint =
     root: targets: getOverride: final:
+    let
+      targetMap = genAttrs targets (_: true);
+    in
     pipe root [
-      (listByNameDirWithDefaultType "package.nix")
-      (ensureDerivationOrder targets)
-      (map (item: {
-        inherit (item) name;
-        value = final.callPackage item.value (getOverride item.name);
-      }))
+      listFlatDrvDir
+      (filter ({ target, ... }: targetMap ? ${target}))
+      (map ({ name, value, ... }: nameValuePair name (final.callPackage value (getOverride name))))
       listToAttrs
     ];
 
   readPackagesScope =
-    newScope: root: targets: getOverride:
-    makeScope newScope (readPackagesFixedPoint root targets getOverride);
+    root: targets: getOverride:
+    flip makeScope (readPackagesFixedPoint root targets getOverride);
 
-  readPackagesOverlay =
-    root: targets: getOverride: final: prev:
-    let
-      scope = readPackagesScope prev.newScope root targets getOverride;
-    in
-    scope.packages scope;
+  readPackagesOverlayWith =
+    unscopeToOverlay: root: targets: getOverride:
+    unscopeToOverlay (readPackagesScope root targets getOverride);
+
+  readPackagesOverlay = readPackagesOverlayWith unscopeToOverlay;
+  readPackagesOverlay' = compose readPackagesOverlayWith unscopeToOverlay';
 }
