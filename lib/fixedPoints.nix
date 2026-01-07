@@ -3,7 +3,7 @@ let
   inherit (lib.fixedPoints) fix';
   inherit (lib.attrsets) recursiveUpdate;
   inherit (lib.lists) foldr;
-  inherit (lib.trivial) flip mergeAttrs;
+  inherit (lib.trivial) flip;
 
   inherit (self.trivial) compose;
 in
@@ -44,15 +44,4 @@ rec {
     final;
 
   rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
-
-  composePrivateWith =
-    merger: gPrivate: gPublic: final: prev:
-    let
-      prev' = merger prev (gPrivate final' prev');
-      final' = merger prev' final;
-    in
-    gPublic final' prev';
-
-  composePrivate = composePrivateWith mergeAttrs;
-  composeRecPrivate = composePrivateWith recursiveUpdate;
 }

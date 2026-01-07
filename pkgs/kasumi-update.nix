@@ -1,6 +1,5 @@
 {
-  inputs ? { },
-  nixpkgs ? inputs.nixpkgs or <nixpkgs>,
+  nixpkgs,
   writeShellApplication,
   stdenvNoCC,
 }:

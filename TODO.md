@@ -2,8 +2,8 @@
 
 ### v2-alpha-3
 
-- filesets bad by design
-- all from zero
+- [x] filesetless design
+- [x] cleanup
 
 ### v2-beta
 

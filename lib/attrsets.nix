@@ -1,8 +1,6 @@
 self: lib:
 let
   inherit (builtins)
-    length
-    elemAt
     hasAttr
     isAttrs
     zipAttrsWith
@@ -12,37 +10,40 @@ let
     attrNames
     intersectAttrs
     filter
-    concatMap
     elem
     partition
-    groupBy
     ;
   inherit (lib.attrsets)
     nameValuePair
     genAttrs
-    mapAttrsToList
     mergeAttrsList
+    concatMapAttrs
     ;
-  inherit (lib.trivial) flip mergeAttrs pipe;
+  inherit (lib.trivial) flip;
 
   inherit (self.trivial) compose;
-  inherit (self.lists) filterOut;
 in
 rec {
   nearestAttrByPath =
-    nodesPath: pattern:
+    nodesPath: pattern: set: deepest:
     let
-      len = length nodesPath;
-      iterator =
-        idx: set: deepest:
-        let
-          key = elemAt nodesPath idx;
-          nextSet = if idx < len && hasAttr key set then set.${key} else null;
-          newDeepest = if hasAttr pattern set then set.${pattern} else deepest;
-        in
-        if isAttrs set then iterator (idx + 1) nextSet newDeepest else deepest;
+      find =
+        currentSet: path: currentDeepest:
+        if path == [ ] then
+          (if isAttrs currentSet && hasAttr pattern currentSet then currentSet.${pattern} else currentDeepest)
+        else
+          let
+            head = builtins.head path;
+            tail = builtins.tail path;
+            newDeepest =
+              if isAttrs currentSet && hasAttr pattern currentSet then currentSet.${pattern} else currentDeepest;
+          in
+          if isAttrs currentSet && hasAttr head currentSet then
+            find currentSet.${head} tail newDeepest
+          else
+            newDeepest;
     in
-    iterator 0;
+    find set nodesPath deepest;
 
   transposeAttrs =
     attrs:
@@ -73,33 +74,33 @@ rec {
         "_excludeAlias"
       ];
     in
-    pipe set [
-      attrValues
-      (filter isAttrs)
-      (concatMap (
-        {
-          _includeAlias ? attrNames obj,
-          _excludeAlias ? defaultExcludes,
-          ...
-        }@obj:
-        if isAttrs _excludeAlias then
-          _includeAlias
-        else
-          map (name: nameValuePair name obj.${name}) (filterOut (flip elem _excludeAlias) _includeAlias)
-      ))
-      listToAttrs
-      (flip mergeAttrs (
-        mapAttrs (_: value: if isAttrs value then removeAttrs value defaultExcludes else value) set
-      ))
-    ];
+    mapAttrs (_: v: if isAttrs v then removeAttrs v defaultExcludes else v) set
+    // concatMapAttrs (
+      _: v:
+      if !isAttrs v then
+        { }
+      else
+        lib.getAttrs (filter (n: !elem n (v._excludeAlias or defaultExcludes)) (
+          v._includeAlias or (attrNames v)
+        )) v
+    ) set;
 
   partitionAttrs =
     pred: set:
-    mapAttrs (_: listToAttrs) (
-      partition ({ name, value }: pred name value) (mapAttrsToList nameValuePair set)
-    );
+    let
+      names = attrNames set;
+      items = partition (n: pred n set.${n}) names;
+      build = compose listToAttrs (
+        map (n: {
+          name = n;
+          value = set.${n};
+        })
+      );
+    in
+    {
+      right = build items.right;
+      wrong = build items.wrong;
+    };
 
-  listToMergedAttrs = compose (mapAttrs (_: compose mergeAttrsList (map ({ value, ... }: value)))) (
-    groupBy ({ name, ... }: name)
-  );
+  listToMergedAttrs = zipAttrsWith (_: mergeAttrsList);
 }

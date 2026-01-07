@@ -1,13 +1,12 @@
 self: lib:
 let
-  inherit (builtins) attrNames isFunction listToAttrs;
+  inherit (builtins) attrNames isFunction;
   inherit (lib.fixedPoints) fix';
-  inherit (lib.trivial) flip;
+  inherit (lib.trivial) flip min;
+  inherit (lib.lists) sortOn indexOf;
 
   inherit (self.attrsets) genTransposedAs;
   inherit (self.fixedPoints) recExtends;
-  inherit (self.trivial) compose;
-  inherit (self.lists) sortOnList;
 in
 rec {
   genFromNixpkgsFor =
@@ -31,7 +30,5 @@ rec {
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
 
-  ensureDerivationOrder = compose sortOnList (map (target: { type, ... }: type == target));
-
-  derivationSetFromDir = files: compose listToAttrs (ensureDerivationOrder files);
+  ensureDerivationOrder = targets: sortOn ({type, ...}: min 999 (indexOf type targets));
 }

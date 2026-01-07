@@ -6,17 +6,25 @@
   };
 
   outputs =
-    { nixpkgs, ... }@inputs:
+    { self, nixpkgs, ... }:
     let
       lib = import ./lib.nix { inherit (nixpkgs) lib; };
     in
     {
       inherit lib;
       overlays = {
-        default = lib.readPackagesScope { } { } [ "package.nix" ];
+        default = lib.readPackagesOverlay ./pkgs [ "package.nix" ] (self.overlays.private { });
+        private = _: _: { inherit nixpkgs; };
         lib = lib.wrapLibExtension (_: _: lib);
-        private = _: _: { inherit inputs; };
       };
-      __functor = lib.mkflake;
-    };
+      templates = lib.readTemplates (lib.getOverride { } {
+        default.description = "Most common kasumi usage";
+      }) ./templates;
+    }
+    // lib.genFromNixpkgs nixpkgs null (pkgs: {
+      packages =
+        lib.rebase self.overlays.default
+          nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+      legacyPackages = pkgs.extend self.overlays.default;
+    });
 }

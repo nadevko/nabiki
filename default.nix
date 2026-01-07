@@ -1,7 +1,13 @@
 {
-  lib ? import <nixpkgs/lib>,
+  nixpkgs ? <nixpkgs>,
+  pkgs ? import nixpkgs { },
+  lib ? pkgs.lib,
   k ? import ./lib.nix { inherit lib; },
 }:
-{
-  inherit lib k;
-}
+pkgs.extend (
+  lib.composeExtensions (k.wrapLibExtension (_: _: k)) (
+    k.readPackagesOverlay ./pkgs [ "package.nix" ] (_: {
+      inherit nixpkgs;
+    })
+  )
+)
