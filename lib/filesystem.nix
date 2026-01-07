@@ -20,7 +20,8 @@ let
     isNixFile
     isValidNix
     ;
-  inherit (self.trivial) compose rebase;
+  inherit (self.trivial) compose;
+  inherit (self.fixedPoints) rebase;
 in
 rec {
   scanDir =
@@ -106,7 +107,6 @@ rec {
   getLibOverlay =
     filePath: final: prev:
     addAliasesToAttrs (rebase (readLiblikeOverlay filePath) prev);
-  getLib = filePath: rebase (getLibOverlay filePath);
 
   readConfigurationDir =
     builder: getOverride: root:

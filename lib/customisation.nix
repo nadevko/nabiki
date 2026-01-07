@@ -24,7 +24,7 @@ rec {
   genFromNixpkgs =
     nixpkgs: config: genFromNixpkgsFor nixpkgs config (attrNames nixpkgs.legacyPackages);
 
-  wrapLibExtension = g: final: prev: { lib = fix' (recExtends (_: _: prev.lib) (flip g prev.lib)); };
+  wrapLibOverlay = g: final: prev: { lib = fix' (recExtends (_: _: prev.lib) (flip g prev.lib)); };
 
   getOverride =
     baseOverride: overrides: name:

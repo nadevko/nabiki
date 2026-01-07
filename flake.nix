@@ -15,7 +15,7 @@
       overlays = {
         default = lib.readPackagesOverlay ./pkgs [ "package.nix" ] (self.overlays.private { });
         private = _: _: { inherit nixpkgs; };
-        lib = lib.wrapLibExtension (_: _: lib);
+        lib = lib.wrapLibOverlay (_: _: lib);
       };
       templates = lib.readTemplates (lib.getOverride { } {
         default.description = "Most common kasumi usage";
