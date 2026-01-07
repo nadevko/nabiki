@@ -1,10 +1,16 @@
 self: lib:
 let
-  inherit (builtins) length filter;
+  inherit (builtins)
+    length
+    filter
+    partition
+    head
+    tail
+    ;
 
   inherit (lib.lists) take drop;
 in
-{
+rec {
   splitAt =
     n: list:
     let
@@ -24,4 +30,12 @@ in
     };
 
   filterOut = pred: filter (e: !pred e);
+
+  sortOnList =
+    predList: list:
+    let
+      tail' = tail predList;
+      check = partition (head predList) list;
+    in
+    if tail' == [ ] then check.right else check.right ++ (sortOnList tail' check.wrong);
 }

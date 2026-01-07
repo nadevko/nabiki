@@ -1,12 +1,13 @@
 self: lib:
 let
-  inherit (builtins) attrNames isFunction foldl';
+  inherit (builtins) attrNames isFunction listToAttrs;
   inherit (lib.fixedPoints) fix';
   inherit (lib.trivial) flip;
-  inherit (lib.customisation) makeScope;
 
-  inherit (self.fixedPoints) recExtends;
   inherit (self.attrsets) genTransposedAs;
+  inherit (self.fixedPoints) recExtends;
+  inherit (self.trivial) compose;
+  inherit (self.lists) sortOnList;
 in
 rec {
   genFromNixpkgsFor =
@@ -26,15 +27,11 @@ rec {
 
   wrapLibExtension = g: final: prev: { lib = fix' (recExtends (_: _: prev.lib) (flip g prev.lib)); };
 
-  makeScopeFromExtension = newScope: (makeScope newScope (_: { })).overrideScope;
-  composeScopeFromExtensionList =
-    newScope: foldl' ({ newScope, ... }: makeScopeFromExtension newScope) (makeScope newScope (_: { }));
-  triComposeScope =
-    newScope: private: public: overrides:
-    (composeScopeFromExtensionList newScope [
-      private
-      public
-    ]).overrideScope
-      overrides;
-  fixScope = scope: scope.packages scope;
+  getOverride =
+    baseOverride: overrides: name:
+    baseOverride // overrides.${name} or { };
+
+  ensureDerivationOrder = compose sortOnList (map (target: { type, ... }: type == target));
+
+  derivationSetFromDir = files: compose listToAttrs (ensureDerivationOrder files);
 }

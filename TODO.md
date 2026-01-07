@@ -1,13 +1,9 @@
 # TODO
 
-### v2-alpha-2
+### v2-alpha-3
 
-- [x] mkflake
-- [x] fileset
-- [x] scopes
-- [x] renaming
-- [ ] builders. include them in legacypackages, exclude from packages
-- [ ] availableOn
+- filesets bad by design
+- all from zero
 
 ### v2-beta
 

@@ -1,22 +1,21 @@
 self: lib:
 let
   inherit (builtins)
-    mapAttrs
-    isAttrs
-    hasAttr
     length
     elemAt
+    hasAttr
+    isAttrs
+    zipAttrsWith
+    listToAttrs
+    attrValues
+    mapAttrs
     attrNames
     intersectAttrs
-    groupBy
-    zipAttrsWith
-    attrValues
-    listToAttrs
-    concatMap
-    removeAttrs
     filter
+    concatMap
     elem
     partition
+    groupBy
     ;
   inherit (lib.attrsets)
     nameValuePair
@@ -79,14 +78,14 @@ rec {
       (filter isAttrs)
       (concatMap (
         {
-          _includeAlias ? attrNames sub,
+          _includeAlias ? attrNames obj,
           _excludeAlias ? defaultExcludes,
           ...
-        }@sub:
+        }@obj:
         if isAttrs _excludeAlias then
           _includeAlias
         else
-          map (name: nameValuePair name sub.${name}) (filterOut (flip elem _excludeAlias) _includeAlias)
+          map (name: nameValuePair name obj.${name}) (filterOut (flip elem _excludeAlias) _includeAlias)
       ))
       listToAttrs
       (flip mergeAttrs (
