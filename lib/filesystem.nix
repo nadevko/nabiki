@@ -1,6 +1,11 @@
 self: lib:
 let
-  inherit (builtins) readDir concatLists listToAttrs;
+  inherit (builtins)
+    readDir
+    concatLists
+    listToAttrs
+    elem
+    ;
 
   inherit (lib.path) append;
   inherit (lib.attrsets) nameValuePair mapAttrsToList;
@@ -38,16 +43,15 @@ rec {
         [ ]
     );
 
-  flatifyModulesSep =
-    sep:
+  flatifyModulesWithKeyMerger =
+    keymerge:
     let
       recurse =
         prefix: root:
         scanDir root (
           path: name: type:
           let
-            name' = removeExtension name;
-            key = if prefix == "" then name' else "${prefix}${sep}${name'}";
+            key = keymerge prefix name type;
           in
           if type == "directory" then
             recurse key path
@@ -59,7 +63,23 @@ rec {
     in
     compose listToAttrs (recurse "");
 
-  flatifyModules = flatifyModulesSep "-";
+  flatifyModulesWith =
+    {
+      sep ? "-",
+      lifts ? [ "default.nix" ],
+    }:
+    flatifyModulesWithKeyMerger (
+      prefix: name: type:
+      if prefix == "" then
+        if type == "directory" then name else removeExtension name
+      else if elem name lifts then
+        prefix
+      else
+        "${prefix}${sep}${removeExtension name}"
+    );
+
+  flatifyModulesSep = sep: flatifyModulesWith { inherit sep; };
+  flatifyModules = flatifyModulesWith { };
 
   readLiblikeOverlay =
     root: final: prev:

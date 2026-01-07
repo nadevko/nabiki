@@ -4,28 +4,23 @@
 
 - [x] filesetless design
 - [x] cleanup
+- [x] lifts in flatifyModules
+- [ ] polyfills
 
 ### v2-beta
-
-Beta adds some advanced tools
 
 - [ ] formatters
 - [ ] git hooks
 - [ ] updaters
-- [ ] polyfills
+- [ ] readme autogen
 
 ### v2-rc
 
-Release candidate are stays for QA
-
-- [ ] flake module?
-- [ ] split
+- [ ] flake module
 - [ ] tests
-- [ ] final refactoring
 - [ ] webpage
 
 ### v2
 
-For final version, stop changes and document all
-
 - [ ] docs
+- [ ] templates
