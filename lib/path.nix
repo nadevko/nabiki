@@ -8,9 +8,9 @@ rec {
   removeExtension =
     name:
     let
-      name' = match "(.*)\\.[^.]+$" name;
+      m = match "(.*)\\.[^.]+$" name;
     in
-    if name' == null then name else head name';
+    if m == null then name else head m;
 
   isHidden = hasPrefix ".";
   isNixFile = hasSuffix ".nix";

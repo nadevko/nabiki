@@ -17,6 +17,7 @@ let
     genAttrs
     mergeAttrsList
     concatMapAttrs
+    getAttrs
     ;
   inherit (lib.trivial) flip;
 
@@ -63,14 +64,35 @@ rec {
     pred: left: right:
     mapAttrs (name: pred name left.${name}) (intersectAttrs left right);
 
-  nameValuePair' = name: value: { ${name} = value; };
+  bind' = name: value: { ${name} = value; };
+
+  extractAliases =
+    {
+      include,
+      exclude ? [ ],
+    }:
+    v: getAttrs (filter (n: !elem n exclude) include) v;
 
   addAliasesToAttrs =
+    aliases: set:
+    let
+      getExtra =
+        n: v:
+        let
+          conf = aliases.${n} or { };
+          include = conf.include or conf._include or [ ];
+          exclude = conf.exclude or conf._exclude or [ ];
+        in
+        if include == [ ] then { } else extractAliases { inherit include exclude; } v;
+    in
+    set // concatMapAttrs (n: v: if isAttrs v then getExtra n v else { }) set;
+
+  addAliasesToAttrs' =
     set:
     let
       defaultExcludes = [
-        "_includeAlias"
-        "_excludeAlias"
+        "_include"
+        "_exclude"
       ];
     in
     mapAttrs (_: v: if isAttrs v then removeAttrs v defaultExcludes else v) set
@@ -79,9 +101,10 @@ rec {
       if !isAttrs v then
         { }
       else
-        lib.getAttrs (filter (n: !elem n (v._excludeAlias or defaultExcludes)) (
-          v._includeAlias or (attrNames v)
-        )) v
+        extractAliases {
+          include = v._include or (attrNames v);
+          exclude = v._exclude or defaultExcludes;
+        } v
     ) set;
 
   partitionAttrs =

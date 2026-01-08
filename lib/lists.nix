@@ -14,8 +14,8 @@ in
       n' = max 0 (min len (if n < 0 then len + n else n));
     in
     {
-      init = take n' list;
-      tail = drop n' list;
+      left = take n' list;
+      right = drop n' list;
     };
 
   intersectListsBy =

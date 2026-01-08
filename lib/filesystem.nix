@@ -12,7 +12,7 @@ let
   inherit (lib.customisation) makeScope;
   inherit (lib.trivial) pipe flip;
 
-  inherit (self.attrsets) addAliasesToAttrs;
+  inherit (self.attrsets) addAliasesToAttrs';
   inherit (self.customisation) unscopeToOverlay unscopeToOverlay';
   inherit (self.path)
     removeExtension
@@ -107,7 +107,7 @@ rec {
 
   getLibOverlay =
     filePath: final: prev:
-    addAliasesToAttrs (rebase (readLiblikeOverlay filePath) prev);
+    addAliasesToAttrs' (rebase (readLiblikeOverlay filePath) prev);
 
   readConfigurationDir =
     builder: getOverride: root:
