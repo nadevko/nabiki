@@ -9,48 +9,42 @@ let
 
   inherit (lib.path) append;
   inherit (lib.attrsets) nameValuePair mapAttrsToList;
-  inherit (lib.customisation) makeScope;
-  inherit (lib.trivial) pipe flip;
 
-  inherit (self.attrsets) addAliasesToAttrs';
-  inherit (self.customisation) unscopeToOverlay unscopeToOverlay';
+  inherit (self.attrsets) addAliasesToAttrs' addAliasesToAttrs;
   inherit (self.path)
-    removeExtension
+    removeNixExtension
     isHidden
     isNixFile
     isValidNix
     ;
   inherit (self.trivial) compose;
-  inherit (self.lists) intersectListsBy;
   inherit (self.fixedPoints) rebase;
 in
 rec {
   scanDir =
-    root: f:
+    f: root:
     concatLists (
       mapAttrsToList (name: type: if isHidden name then [ ] else f (append root name) name type) (
         readDir root
       )
     );
 
-  listModules =
-    root:
-    scanDir root (
-      path: name: type:
-      if type == "directory" then
-        listModules path
-      else if isNixFile name then
-        [ path ]
-      else
-        [ ]
-    );
+  listModules = scanDir (
+    path: name: type:
+    if type == "directory" then
+      listModules path
+    else if isNixFile name then
+      [ path ]
+    else
+      [ ]
+  );
 
   flatifyModulesWithKeyMerger =
     keymerge:
     let
       recurse =
-        prefix: root:
-        scanDir root (
+        prefix:
+        scanDir (
           path: name: type:
           let
             key = keymerge prefix name type;
@@ -72,47 +66,56 @@ rec {
     }:
     flatifyModulesWithKeyMerger (
       prefix: name: type:
+      let
+        name' = removeNixExtension name;
+      in
       if prefix == "" then
-        if type == "directory" then name else removeExtension name
+        if type == "directory" then name else name'
       else if elem name lifts then
         prefix
       else
-        "${prefix}${sep}${removeExtension name}"
+        "${prefix}${sep}${name'}"
     );
 
   flatifyModulesSep = sep: flatifyModulesWith { inherit sep; };
   flatifyModules = flatifyModulesWith { };
 
-  readLiblikeOverlay =
-    root: final: prev:
+  loadNixTree =
+    pred: root:
     let
-      recurse =
-        root:
-        listToAttrs (
-          scanDir root (
-            path: name: type:
-            let
-              key = removeExtension name;
-            in
-            if type == "directory" then
-              [ (nameValuePair key (recurse path)) ]
-            else if isNixFile name then
-              [ (nameValuePair key (import path final prev)) ]
-            else
-              [ ]
-          )
-        );
+      recurse = compose listToAttrs (
+        scanDir (
+          path: name: type:
+          let
+            key = removeNixExtension name;
+          in
+          if type == "directory" then
+            [ (nameValuePair key (recurse path)) ]
+          else if isNixFile name then
+            [ (nameValuePair key (pred path)) ]
+          else
+            [ ]
+        )
+      );
     in
     recurse root;
 
-  getLibOverlay =
-    filePath: final: prev:
-    addAliasesToAttrs' (rebase (readLiblikeOverlay filePath) prev);
+  importNixTreeOverlay =
+    root: final: prev:
+    loadNixTree (path: import path final prev) root;
+
+  importAliasedNixTreeOverlay =
+    aliases: root: final: prev:
+    addAliasesToAttrs aliases (rebase (importNixTreeOverlay root) prev);
+
+  importAliasedNixTreeOverlay' =
+    root: final: prev:
+    addAliasesToAttrs' (rebase (importNixTreeOverlay root) prev);
 
   readConfigurationDir =
-    builder: getOverride: root:
-    listToAttrs (
-      scanDir root (
+    builder: getOverride:
+    compose listToAttrs (
+      scanDir (
         path: name: type:
         if type == "directory" then [ (nameValuePair name (builder path (getOverride name))) ] else [ ]
       )
@@ -121,61 +124,35 @@ rec {
   readNixosConfigurations =
     nixosSystem:
     readConfigurationDir (
-      filePath: config:
-      nixosSystem (config // { modules = (listModules filePath) ++ (config.modules or [ ]); })
+      root: config: nixosSystem (config // { modules = (listModules root) ++ (config.modules or [ ]); })
     );
 
-  readTemplates = readConfigurationDir (filePath: config: config // { path = filePath; });
+  readTemplates = readConfigurationDir (root: config: config // { path = root; });
 
-  listFlatDrvDirWithDefault =
-    defaultTarget: root:
-    scanDir root (
-      path: name: type:
-      if type == "directory" then
-        scanDir path (
-          subPath: subName: subType:
-          if isValidNix subName && subType == "regular" then
-            [
-              {
-                inherit name;
-                target = subName;
-                value = subPath;
-              }
-            ]
-          else
-            [ ]
-        )
-      else if type == "regular" && isValidNix name then
-        [
-          {
-            name = removeExtension name;
-            target = defaultTarget;
-            value = path;
-          }
-        ]
-      else
-        [ ]
-    );
-
-  listFlatDrvDir = listFlatDrvDirWithDefault "package.nix";
-
-  readPackagesFixedPoint =
-    root: targets: getOverride: final:
-    pipe root [
-      listFlatDrvDir
-      (intersectListsBy (x: x.target) targets)
-      (map ({ name, value, ... }: nameValuePair name (final.callPackage value (getOverride name))))
-      listToAttrs
-    ];
-
-  readPackagesScope =
-    root: targets: getOverride:
-    flip makeScope (readPackagesFixedPoint root targets getOverride);
-
-  readPackagesOverlayWith =
-    unscopeToOverlay: root: targets: getOverride:
-    unscopeToOverlay (readPackagesScope root targets getOverride);
-
-  readPackagesOverlay = readPackagesOverlayWith unscopeToOverlay;
-  readPackagesOverlay' = compose readPackagesOverlayWith unscopeToOverlay';
+  listShallowNixes = scanDir (
+    value: name: type:
+    if type == "directory" then
+      scanDir (
+        value: fileName: type:
+        if type == "regular" && isValidNix fileName then
+          [
+            {
+              stem = removeNixExtension fileName;
+              inherit name value;
+            }
+          ]
+        else
+          [ ]
+      ) value
+    else if type == "regular" && isValidNix name then
+      [
+        {
+          stem = null;
+          name = removeNixExtension name;
+          inherit value;
+        }
+      ]
+    else
+      [ ]
+  );
 }

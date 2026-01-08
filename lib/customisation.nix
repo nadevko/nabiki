@@ -1,8 +1,9 @@
 self: lib:
 let
-  inherit (builtins) attrNames isFunction;
+  inherit (builtins) attrNames isFunction mapAttrs;
   inherit (lib.fixedPoints) fix';
   inherit (lib.trivial) flip;
+  inherit (lib.customisation) makeScope;
 
   inherit (self.attrsets) genTransposedAs;
   inherit (self.fixedPoints) recExtends;
@@ -27,6 +28,14 @@ rec {
   getOverride =
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
+
+  mapCallPackage =
+    getOverride: callPackage: set:
+    mapAttrs (name: flip callPackage (getOverride name)) set;
+
+  mapFinalCallPackage = getOverride: final: mapCallPackage getOverride final.callPackage;
+
+  makeUnscope = flip makeScope;
 
   rebaseScope = scope: scope.packages scope;
   rebaseUnscope = unscope: pkgs: rebaseScope (unscope pkgs.newScope);

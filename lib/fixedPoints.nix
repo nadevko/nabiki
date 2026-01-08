@@ -31,10 +31,10 @@ rec {
   recExtends = extendsWith recursiveUpdate;
   composeRecOverlays = composeOverlaysWith recursiveUpdate;
   composeRecOverlaysList = composeOverlaysListWith composeRecOverlays;
-  makeRecExtensibleWithCustomName = makeExtensibleWith (
+  makeRecExtensibleWithName = makeExtensibleWith (
     makeExtensible: f: compose makeExtensible (flip recExtends f)
   );
-  makeRecExtensible = makeRecExtensibleWithCustomName "recExtend";
+  makeRecExtensible = makeRecExtensibleWithName "recExtend";
 
   rebase =
     g: prev:
@@ -44,4 +44,6 @@ rec {
     final;
 
   rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
+
+  toOverlay = f: final: prev: f final;
 }

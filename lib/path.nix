@@ -2,7 +2,7 @@ self: lib:
 let
   inherit (builtins) match head;
 
-  inherit (lib.strings) hasPrefix hasSuffix;
+  inherit (lib.strings) hasPrefix hasSuffix removeSuffix;
 in
 rec {
   removeExtension =
@@ -11,6 +11,8 @@ rec {
       m = match "(.*)\\.[^.]+$" name;
     in
     if m == null then name else head m;
+
+  removeNixExtension = removeSuffix ".nix";
 
   isHidden = hasPrefix ".";
   isNixFile = hasSuffix ".nix";

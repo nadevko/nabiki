@@ -66,24 +66,17 @@ rec {
 
   bind' = name: value: { ${name} = value; };
 
-  extractAliases =
-    {
-      include,
-      exclude ? [ ],
-    }:
-    v: getAttrs (filter (n: !elem n exclude) include) v;
+  extractAliases = include: exclude: getAttrs (filter (n: !elem n exclude) include);
 
   addAliasesToAttrs =
-    aliases: set:
+    includes: set:
     let
       getExtra =
         n: v:
         let
-          conf = aliases.${n} or { };
-          include = conf.include or conf._include or [ ];
-          exclude = conf.exclude or conf._exclude or [ ];
+          include = includes.${n} or { };
         in
-        if include == [ ] then { } else extractAliases { inherit include exclude; } v;
+        if include == [ ] then { } else extractAliases include [ ] v;
     in
     set // concatMapAttrs (n: v: if isAttrs v then getExtra n v else { }) set;
 
@@ -101,10 +94,7 @@ rec {
       if !isAttrs v then
         { }
       else
-        extractAliases {
-          include = v._include or (attrNames v);
-          exclude = v._exclude or defaultExcludes;
-        } v
+        extractAliases (v._include or (attrNames v)) (v._exclude or defaultExcludes) v
     ) set;
 
   partitionAttrs =
