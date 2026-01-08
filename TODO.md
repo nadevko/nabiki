@@ -1,31 +1,29 @@
 # TODO
 
-### v2-alpha-3
+### v2-alpha-2
 
-- [x] filesetless design
-- [x] cleanup
-- [x] lifts in flatifyModules
-- [x] lib api fixup
-- [ ] packages design
-  - [x] basic
-  - [ ] complicated hiddens
-  - [ ] many packages
-- [ ] polyfills
+- [x] basic packages design
+- [ ] subdirs in `pkgs/`
+- [ ] subscopes
+- [ ] complicated hiddens
+- [ ] api
+- [ ] shells, apps, jobs, checks
 
 ### v2-beta
 
 - [ ] formatters
 - [ ] git hooks
 - [ ] updaters
-- [ ] readme autogen
+- [ ] tests
 
 ### v2-rc
 
 - [ ] flake module
-- [ ] tests
+- [ ] templates
+- [ ] readme autogen
 - [ ] webpage
 
 ### v2
 
+- [ ] polyfills
 - [ ] docs
-- [ ] templates
