@@ -29,11 +29,11 @@ rec {
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
 
-  mapCallPackage =
-    getOverride: callPackage: set:
-    mapAttrs (name: flip callPackage (getOverride name)) set;
+  mapCallPackage = getOverride: callPackage: mapAttrs (name: flip callPackage (getOverride name));
 
-  mapFinalCallPackage = getOverride: final: mapCallPackage getOverride final.callPackage;
+  mapFinalCallPackage =
+    getOverride: set: final:
+    mapCallPackage getOverride final.callPackage set;
 
   makeUnscope = flip makeScope;
 

@@ -21,13 +21,11 @@ let
   inherit (self.fixedPoints) rebase;
 in
 rec {
+  scanDirWith = pred: root: concatLists (mapAttrsToList pred (readDir root));
+
   scanDir =
-    f: root:
-    concatLists (
-      mapAttrsToList (name: type: if isHidden name then [ ] else f (append root name) name type) (
-        readDir root
-      )
-    );
+    pred: root:
+    scanDirWith (name: type: if isHidden name then [ ] else pred (append root name) name type) root;
 
   listModules = scanDir (
     path: name: type:
