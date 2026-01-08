@@ -5,11 +5,10 @@ let
     concatLists
     listToAttrs
     elem
-    filter
     ;
 
   inherit (lib.path) append;
-  inherit (lib.attrsets) nameValuePair mapAttrsToList genAttrs;
+  inherit (lib.attrsets) nameValuePair mapAttrsToList;
   inherit (lib.customisation) makeScope;
   inherit (lib.trivial) pipe flip;
 
@@ -22,6 +21,7 @@ let
     isValidNix
     ;
   inherit (self.trivial) compose;
+  inherit (self.lists) intersectListsBy;
   inherit (self.fixedPoints) rebase;
 in
 rec {
@@ -127,7 +127,7 @@ rec {
 
   readTemplates = readConfigurationDir (filePath: config: config // { path = filePath; });
 
-  listFlatDrvDirWithDefaultType =
+  listFlatDrvDirWithDefault =
     defaultTarget: root:
     scanDir root (
       path: name: type:
@@ -157,16 +157,13 @@ rec {
         [ ]
     );
 
-  listFlatDrvDir = listFlatDrvDirWithDefaultType "package.nix";
+  listFlatDrvDir = listFlatDrvDirWithDefault "package.nix";
 
   readPackagesFixedPoint =
     root: targets: getOverride: final:
-    let
-      targetMap = genAttrs targets (_: true);
-    in
     pipe root [
       listFlatDrvDir
-      (filter ({ target, ... }: targetMap ? ${target}))
+      (intersectListsBy (x: x.target) targets)
       (map ({ name, value, ... }: nameValuePair name (final.callPackage value (getOverride name))))
       listToAttrs
     ];
