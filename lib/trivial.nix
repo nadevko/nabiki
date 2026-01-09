@@ -7,5 +7,5 @@ in
     f: g: x:
     f (g x);
 
-  fpipe = flip pipe;
+  pipeF = flip pipe;
 }

@@ -1,15 +1,10 @@
 self: lib:
 let
-  inherit (builtins)
-    attrNames
-    isFunction
-    mapAttrs
-    listToAttrs
-    ;
+  inherit (builtins) attrNames isFunction mapAttrs;
   inherit (lib.fixedPoints) fix';
   inherit (lib.trivial) flip;
-  inherit (lib.customisation) makeScope;
   inherit (lib.attrsets) recursiveUpdate;
+  inherit (lib.customisation) makeScope;
 
   inherit (self.attrsets) genTransposedAs;
   inherit (self.fixedPoints) wrapPrev;
@@ -33,14 +28,19 @@ rec {
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
 
-  mapCallPackage = getOverride: callPackage: mapAttrs (name: flip callPackage (getOverride name));
-
   makeCallSet =
-    getOverride: list: final:
-    mapCallPackage getOverride final.callPackage (listToAttrs list);
+    getOverride: set: final:
+    mapAttrs (name: flip final.callPackage (getOverride name)) set;
 
-  fixCallSet = f: { newScope, ... }: makeScope newScope f;
+  callScope =
+    { newScope, ... }:
+    path: override: makeScope newScope (final: newScope { inherit (final) callPackage; } path override);
 
+  makeScopeSet =
+    getOverride: set: final:
+    mapAttrs (name: path: callScope final path (getOverride name)) set;
+
+  makeUnscope = f: { newScope, ... }: makeScope newScope f;
   rebaseScope = scope: scope.packages scope;
 
   wrapLibOverlay =

@@ -10,11 +10,14 @@
     let
       lib = import ./lib.nix { inherit (nixpkgs) lib; };
 
-      callSet = lib.makeCallSet (lib.getOverride { } { }) (
-        lib.intersectListsBy (x: x.stem) [ "package" ] (lib.listShallowNixes ./pkgs)
-      );
+      callSet = nixpkgs.lib.pipe ./pkgs [
+        lib.listShallowNixes
+        (lib.intersectListsBy (x: x.stem) [ "package" ])
+        builtins.listToAttrs
+        (lib.makeCallSet (lib.getOverride { } { }))
+      ];
 
-      unscope = lib.fixCallSet callSet;
+      unscope = lib.makeUnscope callSet;
     in
     {
       inherit lib;
@@ -31,7 +34,7 @@
       legacyPackages = pkgs.extend (
         lib.composeOverlayList [
           self.overlays.lib
-          self.overlays.packages
+          self.overlays.default
           self.overlays.scope
         ]
       );
