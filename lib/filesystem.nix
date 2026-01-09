@@ -14,8 +14,9 @@ let
   inherit (self.path)
     removeNixExtension
     isHidden
-    isNixFile
-    isValidNix
+    isVisibleNix
+    isDir
+    isVisibleDir
     ;
   inherit (self.trivial) compose;
   inherit (self.fixedPoints) rebase;
@@ -27,11 +28,15 @@ rec {
     pred: root:
     scanDirWith (name: type: if isHidden name then [ ] else pred (append root name) name type) root;
 
+  nestedScanDir =
+    pred: root:
+    scanDirWith (name: type: if isVisibleDir name type then pred (append root name) else [ ]) root;
+
   listModules = scanDir (
     path: name: type:
-    if type == "directory" then
+    if isDir type then
       listModules path
-    else if isNixFile name then
+    else if isVisibleNix name type then
       [ path ]
     else
       [ ]
@@ -47,9 +52,9 @@ rec {
           let
             key = keymerge prefix name type;
           in
-          if type == "directory" then
+          if isDir type then
             recurse key path
-          else if isNixFile name then
+          else if isVisibleNix name type then
             [ (nameValuePair key path) ]
           else
             [ ]
@@ -68,7 +73,7 @@ rec {
         name' = removeNixExtension name;
       in
       if prefix == "" then
-        if type == "directory" then name else name'
+        if isDir type then name else name'
       else if elem name lifts then
         prefix
       else
@@ -87,9 +92,9 @@ rec {
           let
             key = removeNixExtension name;
           in
-          if type == "directory" then
+          if isDir type then
             [ (nameValuePair key (recurse path)) ]
-          else if isNixFile name then
+          else if isVisibleNix name type then
             [ (nameValuePair key (pred path)) ]
           else
             [ ]
@@ -115,7 +120,7 @@ rec {
     compose listToAttrs (
       scanDir (
         path: name: type:
-        if type == "directory" then [ (nameValuePair name (builder path (getOverride name))) ] else [ ]
+        if isDir type then [ (nameValuePair name (builder path (getOverride name))) ] else [ ]
       )
     );
 
@@ -129,10 +134,10 @@ rec {
 
   listShallowNixes = scanDir (
     value: name: type:
-    if type == "directory" then
+    if isDir type then
       scanDir (
         value: fileName: type:
-        if type == "regular" && isValidNix fileName then
+        if isVisibleNix fileName type then
           [
             {
               stem = removeNixExtension fileName;
@@ -142,10 +147,10 @@ rec {
         else
           [ ]
       ) value
-    else if type == "regular" && isValidNix name then
+    else if isVisibleNix name type then
       [
         {
-          stem = null;
+          stem = "";
           name = removeNixExtension name;
           inherit value;
         }
@@ -153,4 +158,6 @@ rec {
     else
       [ ]
   );
+
+  nestedListShallowNixes = nestedScanDir listShallowNixes;
 }

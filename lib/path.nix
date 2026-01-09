@@ -14,7 +14,12 @@ rec {
 
   removeNixExtension = removeSuffix ".nix";
 
+  isRegular = type: type == "regular";
+  isDir = type: type == "directory";
+
   isHidden = hasPrefix ".";
-  isNixFile = hasSuffix ".nix";
-  isValidNix = name: !isHidden name && isNixFile name;
+
+  isNixFile = name: type: isRegular type && hasSuffix ".nix" name;
+  isVisibleNix = name: type: !isHidden name && isNixFile name type;
+  isVisibleDir = name: type: !isHidden name && isDir type;
 }

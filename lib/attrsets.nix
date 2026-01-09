@@ -64,7 +64,7 @@ rec {
     pred: left: right:
     mapAttrs (name: pred name left.${name}) (intersectAttrs left right);
 
-  bind' = name: value: { ${name} = value; };
+  bind = name: value: { ${name} = value; };
 
   extractAliases = include: exclude: getAttrs (filter (n: !elem n exclude) include);
 
