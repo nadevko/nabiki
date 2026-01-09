@@ -1,9 +1,8 @@
 self: lib:
 let
   inherit (lib.fixedPoints) fix';
-  inherit (lib.attrsets) recursiveUpdate;
   inherit (lib.lists) foldr;
-  inherit (lib.trivial) flip;
+  inherit (lib.trivial) flip mergeAttrs;
 
   inherit (self.trivial) compose;
 in
@@ -22,19 +21,17 @@ rec {
     in
     merger base (gOverride final (merger prev base));
 
-  composeOverlaysListWith = flip foldr (final: prev: { });
+  composeOverlayListWith = flip foldr (final: prev: { });
 
   makeExtensibleWith =
     extender: extenderName: f:
     fix' (self: f self // { ${extenderName} = extender (makeExtensibleWith extender extenderName) f; });
 
-  recExtends = extendsWith recursiveUpdate;
-  composeRecOverlays = composeOverlaysWith recursiveUpdate;
-  composeRecOverlaysList = composeOverlaysListWith composeRecOverlays;
-  makeRecExtensibleWithName = makeExtensibleWith (
-    makeExtensible: f: compose makeExtensible (flip recExtends f)
-  );
-  makeRecExtensible = makeRecExtensibleWithName "recExtend";
+  extends = extendsWith mergeAttrs;
+  composeOverlays = composeOverlaysWith mergeAttrs;
+  composeOverlayList = composeOverlayListWith composeOverlays;
+  makeExtensibleAs = makeExtensibleWith (makeExtensible: f: compose makeExtensible (flip extends f));
+  makeExtensible = makeExtensibleAs "extend";
 
   rebase =
     g: prev:
@@ -45,5 +42,13 @@ rec {
 
   rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
 
-  toOverlay = f: final: prev: f final;
+  toOverlay =
+    f: final: prev:
+    f;
+  wrapFinal =
+    f: final: prev:
+    f final;
+  wrapPrev =
+    f: final: prev:
+    f prev;
 }

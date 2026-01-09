@@ -10,31 +10,31 @@
     let
       lib = import ./lib.nix { inherit (nixpkgs) lib; };
 
-      files = lib.intersectListsBy (x: x.stem) [ "package" ] (lib.listShallowNixes ./pkgs);
-      set = builtins.listToAttrs files;
-      f = lib.mapFinalCallPackage (lib.getOverride { } { }) set;
-      unscope = lib.makeUnscope f;
+      callSet = lib.makeCallSet (lib.getOverride { } { }) (
+        lib.intersectListsBy (x: x.stem) [ "package" ] (lib.listShallowNixes ./pkgs)
+      );
+
+      unscope = lib.fixCallSet callSet;
     in
     {
       inherit lib;
       overlays = {
-        lib = lib.wrapLibOverlay (_: _: lib);
-        default = self.overlays.packages;
-        packages = lib.unscopeToOverlay unscope;
-        packages' = lib.unscopeToOverlay' "kasumi" unscope;
+        default = lib.wrapFinal callSet;
+        lib = lib.wrapLibOverlay (lib.toOverlay lib);
+        scope = lib.unscopeToOverlay "kasumi" unscope;
       };
       templates = lib.readTemplates (lib.getOverride { } {
         default.description = "Most common kasumi usage";
       }) ./templates;
     }
-    // lib.genFromPkgs nixpkgs null (
-      pkgs:
-      let
-        scope = unscope pkgs.newScope;
-      in
-      {
-        legacyPackages = pkgs.extend self.overlays.packages';
-        packages = lib.rebaseScope scope;
-      }
-    );
+    // lib.genFromPkgs nixpkgs null (pkgs: {
+      legacyPackages = pkgs.extend (
+        lib.composeOverlayList [
+          self.overlays.lib
+          self.overlays.packages
+          self.overlays.scope
+        ]
+      );
+      packages = lib.rebaseScope (unscope pkgs);
+    });
 }

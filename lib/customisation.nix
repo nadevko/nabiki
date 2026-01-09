@@ -1,12 +1,18 @@
 self: lib:
 let
-  inherit (builtins) attrNames isFunction mapAttrs;
+  inherit (builtins)
+    attrNames
+    isFunction
+    mapAttrs
+    listToAttrs
+    ;
   inherit (lib.fixedPoints) fix';
   inherit (lib.trivial) flip;
   inherit (lib.customisation) makeScope;
+  inherit (lib.attrsets) recursiveUpdate;
 
   inherit (self.attrsets) genTransposedAs;
-  inherit (self.fixedPoints) recExtends;
+  inherit (self.fixedPoints) wrapPrev;
 in
 rec {
   genFromPkgsFor =
@@ -23,34 +29,28 @@ rec {
 
   genFromPkgs = pkgs: config: genFromPkgsFor pkgs config (attrNames pkgs.legacyPackages);
 
-  wrapLibOverlay = g: final: prev: { lib = fix' (recExtends (_: _: prev.lib) (flip g prev.lib)); };
-
   getOverride =
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
 
   mapCallPackage = getOverride: callPackage: mapAttrs (name: flip callPackage (getOverride name));
 
-  mapFinalCallPackage =
-    getOverride: set: final:
-    mapCallPackage getOverride final.callPackage set;
+  makeCallSet =
+    getOverride: list: final:
+    mapCallPackage getOverride final.callPackage (listToAttrs list);
 
-  makeUnscope = flip makeScope;
+  fixCallSet = f: { newScope, ... }: makeScope newScope f;
 
   rebaseScope = scope: scope.packages scope;
-  rebaseUnscope = unscope: pkgs: rebaseScope (unscope pkgs.newScope);
 
+  wrapLibOverlay =
+    g:
+    wrapPrev (prev: {
+      lib = fix' (final: recursiveUpdate prev.lib (g final prev.lib));
+    });
   unscopeToOverlay =
-    unscope: final: prev:
-    let
-      scope = unscope prev.newScope;
-    in
-    rebaseScope scope;
-
-  unscopeToOverlay' =
-    name: unscope: final: prev:
-    let
-      scope = unscope prev.newScope;
-    in
-    { ${name} = scope; } // rebaseScope scope;
+    name: unscope:
+    wrapPrev (prev: {
+      ${name} = unscope prev;
+    });
 }
