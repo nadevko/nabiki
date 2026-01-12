@@ -80,7 +80,7 @@ rec {
       f self
       // {
         callPackage = self.newScope { };
-        newScope = extra: callPackageWith (f self // extra);
+        newScope = extra: callPackageWith (self // extra);
         ${extenderName} = g: makeCallExtensibleAs extenderName (extends g f);
       }
     );

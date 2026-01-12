@@ -15,6 +15,7 @@ let
     tail
     isFunction
     ;
+
   inherit (lib.attrsets)
     nameValuePair
     genAttrs
@@ -48,36 +49,60 @@ rec {
     in
     find;
 
-  transposeAttrs =
-    attrs:
-    zipAttrsWith (_: listToAttrs) (
-      attrValues (mapAttrs (root: mapAttrs (_: nameValuePair root)) attrs)
-    );
-
-  genTransposedAs =
-    reader: roots: generator:
-    transposeAttrs (genAttrs roots (compose generator reader));
-
-  genTransposed = genTransposedAs (x: x);
-
-  genTransposedFrom' = compose (flip genTransposedAs) attrNames;
-  genTransposedFrom = set: genTransposedFrom' set (attr: set.${attr});
-
   mapAttrsIntersection =
     pred: left: right:
     mapAttrs (name: pred name left.${name}) (intersectAttrs left right);
 
   bind = name: value: { ${name} = value; };
 
+  partitionAttrs =
+    pred: set:
+    let
+      items = partition (n: pred n set.${n}) (attrNames set);
+      build = flip genAttrs (n: set.${n});
+    in
+    {
+      right = build items.right;
+      wrong = build items.wrong;
+    };
+
+  zipMerge = zipAttrsWith (_: mergeAttrsList);
+
+  transposeAttrs =
+    attrs:
+    zipAttrsWith (_: listToAttrs) (
+      attrValues (mapAttrs (root: mapAttrs (_: nameValuePair root)) attrs)
+    );
+
+  perWith =
+    reader: roots: generator:
+    transposeAttrs (genAttrs roots (compose generator reader));
+
+  per = perWith (x: x);
+
+  perSystemIn =
+    systems: source: config:
+    perWith (
+      system:
+      if config == null then
+        source.legacyPackages.${system}
+      else if isFunction config then
+        config system
+      else
+        import source (config // { inherit system; })
+    ) systems;
+
+  perSystem = flake: perSystemIn (attrNames flake.legacyPackages) flake;
+
   extractAliases = include: exclude: getAttrs (filter (n: !elem n exclude) include);
 
   addAliasesToAttrs =
-    getInclude: set:
+    allIncludes: set:
     let
       getExtra =
         n: v:
         let
-          includes = getInclude n;
+          includes = allIncludes.${n} or [ ];
         in
         if includes == [ ] then { } else extractAliases includes [ "_includes" "_excludes" ] v;
     in
@@ -100,36 +125,9 @@ rec {
         extractAliases (v._includes or attrNames v) ((v._excludes or [ ]) ++ defaultExcludes) v
     ) set;
 
-  partitionAttrs =
-    pred: set:
-    let
-      items = partition (n: pred n set.${n}) (attrNames set);
-      build = flip genAttrs (n: set.${n});
-    in
-    {
-      right = build items.right;
-      wrong = build items.wrong;
-    };
-
-  zipMerge = zipAttrsWith (_: mergeAttrsList);
-
-  perSystemIn =
-    systems: flake: config:
-    genTransposedAs (
-      system:
-      if config == null then
-        flake.legacyPackages.${system}
-      else if isFunction config then
-        import flake (config system)
-      else
-        import flake (config // { inherit system; })
-    ) systems;
-
-  perSystem = flake: perSystemIn (attrNames flake.legacyPackages) flake;
-
   makeCallSetWith =
-    caller: getOverride: set: final:
-    mapAttrs (name: flip final.${caller} (getOverride name)) set;
+    caller: getOverrideWith: set: final:
+    mapAttrs (name: flip final.${caller} (getOverrideWith final name)) set;
 
   makeCallPackageSet = makeCallSetWith "callPackage";
   makeCallScopeSet = makeCallSetWith "callScope";

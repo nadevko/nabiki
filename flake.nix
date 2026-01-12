@@ -8,20 +8,20 @@
   outputs =
     { self, nixpkgs, ... }:
     let
-      getLib = lib: import ./lib.nix { inherit lib; };
+      getLib = lib: import ./lib.nix { inherit (nixpkgs) lib; };
       lib = getLib nixpkgs.lib;
     in
     {
       inherit lib;
       overlays = {
         default = import ./overlay.nix;
-        lib = lib.wrapLibOverlay (_: prev: getLib prev.lib);
+        lib = import ./overlays/lib.nix;
       };
-      templates = lib.readTemplates (lib.getOverride { } {
+      templates = lib.filesystem.readTemplates (lib.customisation.getOverride { } {
         default.description = "Most common kasumi usage";
       }) ./templates;
     }
-    // lib.perSystem nixpkgs null (pkgs: {
+    // lib.attrsets.perSystem nixpkgs null (pkgs: {
       legacyPackages = import ./. { inherit pkgs; };
       packages = self.overlays.default pkgs { };
     });

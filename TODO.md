@@ -8,6 +8,7 @@
 - [ ] complicated hiddens
 - [ ] api
 - [ ] shells, apps, jobs, checks
+- [x] true lazyness
 
 ### v2-beta
 

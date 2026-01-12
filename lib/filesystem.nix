@@ -33,11 +33,11 @@ rec {
     scanDirWith (name: type: if isVisibleDir name type then pred (append root name) else [ ]) root;
 
   listModules = scanDir (
-    path: name: type:
+    root: name: type:
     if isDir type then
-      listModules path
+      listModules root
     else if isVisibleNix name type then
-      [ path ]
+      [ root ]
     else
       [ ]
   );
@@ -48,14 +48,14 @@ rec {
       recurse =
         prefix:
         scanDir (
-          path: name: type:
+          root: name: type:
           let
             key = keymerge prefix name type;
           in
           if isDir type then
-            recurse key path
+            recurse key root
           else if isVisibleNix name type then
-            [ (nameValuePair key path) ]
+            [ (nameValuePair key root) ]
           else
             [ ]
         );
@@ -88,14 +88,14 @@ rec {
     let
       recurse = compose listToAttrs (
         scanDir (
-          path: name: type:
+          root: name: type:
           let
             key = removeNixExtension name;
           in
           if isDir type then
-            [ (nameValuePair key (recurse path)) ]
+            [ (nameValuePair key (recurse root)) ]
           else if isVisibleNix name type then
-            [ (nameValuePair key (pred path)) ]
+            [ (nameValuePair key (pred root)) ]
           else
             [ ]
         )
@@ -105,7 +105,7 @@ rec {
 
   importNixTreeOverlay =
     root: final: prev:
-    loadNixTree (path: import path final prev) root;
+    loadNixTree (root: import root final prev) root;
 
   importAliasedNixTreeOverlay =
     aliases: root: final: prev:
@@ -119,8 +119,8 @@ rec {
     builder: getOverride:
     compose listToAttrs (
       scanDir (
-        path: name: type:
-        if isDir type then [ (nameValuePair name (builder path (getOverride name))) ] else [ ]
+        root: name: type:
+        if isDir type then [ (nameValuePair name (builder root (getOverride name))) ] else [ ]
       )
     );
 

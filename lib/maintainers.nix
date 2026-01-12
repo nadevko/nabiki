@@ -5,5 +5,4 @@ final: prev: {
     github = "nadevko";
     githubId = 93840073;
   };
-  _excludes = [ "nadevko" ];
 }
