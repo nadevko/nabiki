@@ -3,10 +3,10 @@
   writeShellApplication,
   stdenvNoCC,
 }:
-let
-  updater = ./updater.nix;
-  collector = ./collector.nix;
-in
+# let
+#   updater = ./updater.nix;
+#   collector = ./collector.nix;
+# in
 writeShellApplication {
   name = "kasumi-update";
 
@@ -18,9 +18,9 @@ writeShellApplication {
     updater_path=$(nix build --no-link --print-out-paths --impure --expr "
       let
         pkgs = import ${path} { };
-        collector = pkgs.callPackage ${collector} { };
+        collector = pkgs.callPackage ''${collector} { };
       in
-      import ${updater} {
+      import ''${updater} {
         inherit collector;
         flake_path = \"$flake_path\";
         target = \"$target\";

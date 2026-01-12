@@ -1,56 +1,105 @@
 self: lib:
 let
-  inherit (builtins) attrNames isFunction mapAttrs;
+  inherit (builtins)
+    attrNames
+    isFunction
+    functionArgs
+    intersectAttrs
+    filter
+    length
+    elemAt
+    concatStringsSep
+    head
+    unsafeGetAttrPos
+    ;
   inherit (lib.fixedPoints) fix';
-  inherit (lib.trivial) flip;
-  inherit (lib.attrsets) recursiveUpdate;
-  inherit (lib.customisation) makeScope;
+  inherit (lib.trivial) pipe;
+  inherit (lib.customisation) makeOverridable;
+  inherit (lib.lists)
+    take
+    sortOn
+    init
+    last
+    ;
+  inherit (lib.strings) levenshteinAtMost levenshtein;
 
-  inherit (self.attrsets) genTransposedAs;
-  inherit (self.fixedPoints) wrapPrev;
+  inherit (self.fixedPoints) extends;
 in
 rec {
-  genFromPkgsFor =
-    pkgs: config:
-    genTransposedAs (
-      system:
-      if config == null then
-        pkgs.legacyPackages.${system}
-      else if isFunction config then
-        import pkgs (config system)
-      else
-        import pkgs (config // { inherit system; })
-    );
-
-  genFromPkgs = pkgs: config: genFromPkgsFor pkgs config (attrNames pkgs.legacyPackages);
-
   getOverride =
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
 
-  makeCallSet =
-    getOverride: set: final:
-    mapAttrs (name: flip final.callPackage (getOverride name)) set;
+  getCallErrorMessage =
+    allNames: requestedAttrs: arg:
+    let
+      suggestions = pipe allNames [
+        (filter (levenshteinAtMost 2 arg))
+        (sortOn (levenshtein arg))
+        (take 3)
+        (map (x: ''"${x}"''))
+      ];
 
-  callScope =
+      prettySuggestions =
+        if suggestions == [ ] then
+          ""
+        else if length suggestions == 1 then
+          ", did you mean ${elemAt suggestions 0}?"
+        else
+          ", did you mean ${concatStringsSep ", " (init suggestions)} or ${last suggestions}?";
+
+      attrPos = unsafeGetAttrPos arg requestedAttrs;
+      loc = if attrPos != null then attrPos.file + ":" + toString attrPos.line else "<unknown location>";
+    in
+    ''Function called without required argument "${arg}" at ${loc}${prettySuggestions}'';
+
+  callPackageWith =
+    autoAttrs: fn: attrsAsIs:
+    let
+      callee = if isFunction fn then fn else import fn;
+      requestedAttrs = functionArgs callee;
+      callArg = intersectAttrs requestedAttrs autoAttrs // attrsAsIs;
+      missing = filter (n: !(requestedAttrs.${n} || callArg ? ${n})) (attrNames requestedAttrs);
+    in
+    if missing == [ ] then
+      makeOverridable callee callArg
+    else
+      abort "kasumi.lib.customisation.callPackageWith: ${
+        getCallErrorMessage (attrNames (autoAttrs // attrsAsIs)) requestedAttrs (head missing)
+      }";
+
+  callScopeWith =
     { newScope, ... }:
-    path: override: makeScope newScope (final: newScope { inherit (final) callPackage; } path override);
+    fn: override:
+    makeScope newScope (final: newScope { inherit (final) newScope callPackage; } fn override);
 
-  makeScopeSet =
-    getOverride: set: final:
-    mapAttrs (name: path: callScope final path (getOverride name)) set;
+  makeCallExtensibleAs =
+    extenderName: f:
+    fix' (
+      self:
+      f self
+      // {
+        callPackage = self.newScope { };
+        newScope = extra: callPackageWith (f self // extra);
+        ${extenderName} = g: makeCallExtensibleAs extenderName (extends g f);
+      }
+    );
 
-  makeUnscope = f: { newScope, ... }: makeScope newScope f;
-  rebaseScope = scope: scope.packages scope;
+  makeCallExtensible = makeCallExtensibleAs "extend";
 
-  wrapLibOverlay =
-    g:
-    wrapPrev (prev: {
-      lib = fix' (final: recursiveUpdate prev.lib (g final prev.lib));
-    });
-  unscopeToOverlay =
-    name: unscope:
-    wrapPrev (prev: {
-      ${name} = unscope prev;
-    });
+  makeScope =
+    f: prevScope:
+    fix' (
+      self:
+      f self
+      // {
+        newScope = scope: prevScope (self // scope);
+        callPackage = self.newScope { };
+        callScope = callScopeWith self;
+        extendScope = g: makeScope prevScope (extends g f);
+        rebaseScope = makeScope self.newScope;
+        packagesWith = f;
+        packages = f self;
+      }
+    );
 }
