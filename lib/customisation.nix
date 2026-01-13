@@ -23,7 +23,8 @@ let
     ;
   inherit (lib.strings) levenshteinAtMost levenshtein;
 
-  inherit (self.fixedPoints) extends;
+  inherit (self.fixedPoints) extends composeOverlayList;
+  inherit (self.trivial) compose;
 in
 rec {
   getOverride =
@@ -71,36 +72,46 @@ rec {
   callScopeWith =
     { newScope, ... }:
     fn: override:
-    makeScope newScope (final: newScope { inherit (final) newScope callPackage; } fn override);
+    makeScope (self: newScope { inherit (self) newScope callPackage; } fn override) newScope;
 
-  makeLegacyPackagesExtensibleAs =
-    extenderName: f:
+  makeLegacyPackages =
+    f:
     fix' (
       pkgs:
       f pkgs
       // {
+        _type = "pkgs";
+
         inherit pkgs;
-        callPackage = pkgs.newScope { };
+
         newScope = extra: callPackageWith (pkgs // extra);
-        ${extenderName} = g: makeLegacyPackagesExtensibleAs extenderName (extends g f);
+        callPackage = pkgs.newScope { };
+        callScope = callScopeWith pkgs;
+
+        overrideBy = g: makeLegacyPackages (extends g f);
+        overrideList = compose pkgs.overrideBy composeOverlayList;
       }
     );
-
-  makeLegacyPackages = makeLegacyPackagesExtensibleAs "extend";
 
   makeScope =
     f: prevScope:
     fix' (
-      self:
-      f self
+      scope:
+      f scope
       // {
-        newScope = scope: prevScope (self // scope);
-        callPackage = self.newScope { };
-        callScope = callScopeWith self;
-        extendScope = g: makeScope prevScope (extends g f);
-        rebaseScope = makeScope self.newScope;
+        _type = "scope";
+        recurseForDerivations = true;
+
         packagesWith = f;
-        packages = f self;
+        packages = f scope;
+
+        newScope = extra: prevScope (scope // extra);
+        callPackage = scope.newScope { };
+        callScope = callScopeWith scope;
+
+        overrideScopeBy = g: makeScope prevScope (extends g f);
+        overrideScopeList = compose scope.overrideScope composeOverlayList;
+        rebaseScope = makeScope scope.newScope;
       }
     );
 }

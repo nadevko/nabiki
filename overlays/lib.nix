@@ -35,7 +35,6 @@ let
       "getCallErrorMessage"
       "callPackageWith"
       "callScopeWith"
-      "makeLegacyPackagesExtensibleAs"
       "makeLegacyPackages"
       "makeScope"
     ];

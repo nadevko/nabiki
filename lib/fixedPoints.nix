@@ -1,5 +1,7 @@
 self: lib:
 let
+  inherit (builtins) isFunction;
+
   inherit (lib.fixedPoints) fix';
   inherit (lib.lists) foldr;
   inherit (lib.trivial) flip mergeAttrs;
@@ -43,5 +45,8 @@ rec {
 
   rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
 
-  wrapLibOverlay = g: final: prev: { lib = fix' (self: recursiveUpdate prev.lib (g self prev.lib)); };
+  wrapLibOverlay = libName: fn: final: prev: {
+    lib = prev.lib.extend (_: prev: recursiveUpdate final.${libName} prev);
+    ${libName} = fix' (self: (if isFunction fn then fn else import fn) self prev.lib);
+  };
 }
