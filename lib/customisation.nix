@@ -73,19 +73,20 @@ rec {
     fn: override:
     makeScope newScope (final: newScope { inherit (final) newScope callPackage; } fn override);
 
-  makeCallExtensibleAs =
+  makeLegacyPackagesAs =
     extenderName: f:
     fix' (
-      self:
-      f self
+      pkgs:
+      f pkgs
       // {
-        callPackage = self.newScope { };
-        newScope = extra: callPackageWith (self // extra);
-        ${extenderName} = g: makeCallExtensibleAs extenderName (extends g f);
+        inherit pkgs;
+        callPackage = pkgs.newScope { };
+        newScope = extra: callPackageWith (pkgs // extra);
+        ${extenderName} = g: makeLegacyPackagesAs extenderName (extends g f);
       }
     );
 
-  makeCallExtensible = makeCallExtensibleAs "extend";
+  makeLegacyPackages = makeLegacyPackagesAs "extend";
 
   makeScope =
     f: prevScope:

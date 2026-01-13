@@ -22,7 +22,10 @@
       }) ./templates;
     }
     // lib.attrsets.perSystem nixpkgs null (pkgs: {
-      legacyPackages = import ./. { inherit pkgs; };
+      legacyPackages = import ./. {
+        inherit pkgs;
+        kasumi-lib = lib;
+      };
       packages = self.overlays.default pkgs { };
     });
 }
