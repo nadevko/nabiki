@@ -8,8 +8,7 @@
   outputs =
     { self, nixpkgs, ... }:
     let
-      getLib = lib: import ./lib.nix { inherit (nixpkgs) lib; };
-      lib = getLib nixpkgs.lib;
+      lib = import ./lib.nix { inherit (nixpkgs) lib; };
     in
     {
       inherit lib;
@@ -17,15 +16,12 @@
         default = import ./overlay.nix;
         lib = import ./overlays/lib.nix;
       };
-      templates = lib.filesystem.readTemplates (lib.customisation.getOverride { } {
-        default.description = "Most common kasumi usage";
+      templates = lib.filesystem.readTemplates (_: {
+        description = "Most common kasumi usage";
       }) ./templates;
     }
     // lib.attrsets.perSystem nixpkgs null (pkgs: {
-      legacyPackages = import ./. {
-        inherit pkgs;
-        kasumi-lib = lib;
-      };
+      legacyPackages = import ./. { inherit pkgs; };
       packages = self.overlays.default pkgs { };
     });
 }
