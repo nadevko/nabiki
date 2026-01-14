@@ -13,7 +13,7 @@ let
   };
   aliases = {
     attrsets = [
-      "closestAttrByPath"
+      "findClosestByPath"
       "mapAttrsIntersection"
       "bind"
       "partitionAttrs"
@@ -41,7 +41,7 @@ let
     filesystem = [
       "scanDirWith"
       "scanDir"
-      "nestedScanDir"
+      "scanSubDirs"
       "listModules"
       "flatifyModulesWithKeyMerger"
       "flatifyModulesWith"
@@ -54,8 +54,8 @@ let
       "readConfigurationDir"
       "readNixosConfigurations"
       "readTemplates"
-      "listShallowNixes"
-      "nestedListShallowNixes"
+      "listNixesWithDefaultStem"
+      "listNixes"
     ];
     fixedPoints = [
       "rebase"
@@ -65,8 +65,8 @@ let
       "composeOverlayListBy"
       "makeExtensibleBy"
       "extends"
-      "composeOverlays"
-      "composeOverlayList"
+      "extendOverlays"
+      "extendOverlayList"
       "makeExtensibleAs"
       "makeExtensible"
       "patches"

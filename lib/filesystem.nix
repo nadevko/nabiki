@@ -28,7 +28,7 @@ rec {
     pred: root:
     scanDirWith (name: type: if isHidden name then [ ] else pred (append root name) name type) root;
 
-  nestedScanDir =
+  scanSubDirs =
     pred: root:
     scanDirWith (name: type: if isVisibleDir name type then pred (append root name) else [ ]) root;
 
@@ -132,32 +132,33 @@ rec {
 
   readTemplates = readConfigurationDir (root: config: config // { path = root; });
 
-  listShallowNixes = scanDir (
-    value: name: type:
-    if isDir type then
-      scanDir (
-        value: fileName: type:
-        if isVisibleNix fileName type then
-          [
-            {
-              stem = removeNixExtension fileName;
-              inherit name value;
-            }
-          ]
-        else
-          [ ]
-      ) value
-    else if isVisibleNix name type then
-      [
-        {
-          stem = "";
-          name = removeNixExtension name;
-          inherit value;
-        }
-      ]
-    else
-      [ ]
-  );
+  listNixesWithDefaultStem =
+    stem:
+    scanDir (
+      value: name: type:
+      if isDir type then
+        scanDir (
+          value: fileName: type:
+          if isVisibleNix fileName type then
+            [
+              {
+                stem = removeNixExtension fileName;
+                inherit name value;
+              }
+            ]
+          else
+            [ ]
+        ) value
+      else if isVisibleNix name type then
+        [
+          {
+            name = removeNixExtension name;
+            inherit value stem;
+          }
+        ]
+      else
+        [ ]
+    );
 
-  nestedListShallowNixes = nestedScanDir listShallowNixes;
+  listNixes = listNixesWithDefaultStem "package";
 }

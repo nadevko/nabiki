@@ -27,7 +27,7 @@ let
   inherit (self.trivial) compose;
 in
 rec {
-  closestAttrByPath =
+  findClosestByPath =
     pattern:
     let
       find =

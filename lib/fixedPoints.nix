@@ -41,8 +41,8 @@ rec {
     );
 
   extends = extendBy mergeAttrs;
-  composeOverlays = composeOverlaysBy mergeAttrs;
-  composeOverlayList = composeOverlayListBy composeOverlays;
+  extendOverlays = composeOverlaysBy mergeAttrs;
+  extendOverlayList = composeOverlayListBy extendOverlays;
   makeExtensibleAs = makeExtensibleBy extends;
   makeExtensible = makeExtensibleAs "extend";
 
