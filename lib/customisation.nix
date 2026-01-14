@@ -72,25 +72,6 @@ rec {
     fn: override:
     makeScope (self: newScope { inherit (self) newScope callPackage; } fn override) newScope;
 
-  makeLegacyPackages =
-    f:
-    fix' (
-      pkgs:
-      f pkgs
-      // {
-        _type = "pkgs";
-
-        inherit pkgs;
-
-        newScope = extra: callPackageWith (pkgs // extra);
-        callPackage = pkgs.newScope { };
-        callScope = callScopeWith pkgs;
-
-        overrideBy = g: makeLegacyPackages (extends g f);
-        overrideList = compose pkgs.overrideBy composeOverlayList;
-      }
-    );
-
   makeScope =
     f: prevScope:
     fix' (

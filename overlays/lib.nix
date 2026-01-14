@@ -35,7 +35,6 @@ let
       "getCallErrorMessage"
       "callPackageWith"
       "callScopeWith"
-      "makeLegacyPackages"
       "makeScope"
     ];
     filesystem = [

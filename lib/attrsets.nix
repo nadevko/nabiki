@@ -144,7 +144,7 @@ rec {
 
   makeCallSetWith =
     caller: getOverride: set: final:
-    mapAttrs (name: flip final.${caller} (getOverride name)) set;
+    mapAttrs (name: flip final.${caller} (getOverride final name)) set;
 
   makeCallPackageSet = makeCallSetWith "callPackage";
   makeCallScopeSet = makeCallSetWith "callScope";

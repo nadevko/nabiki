@@ -21,7 +21,7 @@
         description = "Most common kasumi usage";
       }) ./templates;
     }
-    // lib.attrsets.perSystem nixpkgs null (pkgs: {
+    // lib.attrsets.perSystem nixpkgs { overlays = [ self.overlays.augment ]; } (pkgs: {
       legacyPackages = import ./. { inherit pkgs; };
       packages = self.overlays.default pkgs { };
     });
