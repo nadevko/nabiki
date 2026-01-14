@@ -18,50 +18,58 @@ rec {
 
   rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
 
-  extendBy =
+  extendWith =
     merger: g: f: final:
     let
       prev = f final;
     in
     merger prev (g final prev);
 
-  composeOverlaysBy =
+  composeOverlaysWith =
     merger: gBase: gOverride: final: prev:
     let
       base = gBase final prev;
     in
     merger base (gOverride final (merger prev base));
 
-  composeOverlayListBy = flip foldr (final: prev: { });
+  composeOverlayListWith = flip foldr (final: prev: { });
 
-  makeExtensibleBy =
+  makeExtensibleWith =
     extends: extenderName: f:
     fix' (
-      self: f self // { ${extenderName} = g: makeExtensibleBy extends extenderName (extends g f); }
+      self: f self // { ${extenderName} = g: makeExtensibleWith extends extenderName (extends g f); }
     );
 
-  extends = extendBy mergeAttrs;
-  extendOverlays = composeOverlaysBy mergeAttrs;
-  extendOverlayList = composeOverlayListBy extendOverlays;
-  makeExtensibleAs = makeExtensibleBy extends;
+  safeExtendWith =
+    makeExtensible: extenderName: extensible:
+    extensible.${extenderName} or (makeExtensible (_: extensible)).${extenderName};
+
+  extends = extendWith mergeAttrs;
+  extendOverlays = composeOverlaysWith mergeAttrs;
+  extendOverlayList = composeOverlayListWith extendOverlays;
+  makeExtensibleAs = makeExtensibleWith extends;
   makeExtensible = makeExtensibleAs "extend";
+  safeExtendAs = safeExtendWith makeExtensible;
+  safeExtend = safeExtendAs "extend";
 
-  patches = extendBy pointwiser;
-  patchOverlays = composeOverlaysBy pointwiser;
-  patchOverlayList = composeOverlayListBy patchOverlays;
-  makePatchableAs = makeExtensibleBy patches;
+  patches = extendWith pointwiser;
+  patchOverlays = composeOverlaysWith pointwiser;
+  patchOverlayList = composeOverlayListWith patchOverlays;
+  makePatchableAs = makeExtensibleWith patches;
   makePatchable = makePatchableAs "patch";
+  safePatchAs = safeExtendWith makePatchable;
+  safePatch = safePatchAs "patch";
 
-  augments = extendBy pointwisel;
-  augmentOverlays = composeOverlaysBy pointwisel;
-  augmentOverlayList = composeOverlayListBy augmentOverlays;
-  makeAugmentableAs = makeExtensibleBy augments;
+  augments = extendWith pointwisel;
+  augmentOverlays = composeOverlaysWith pointwisel;
+  augmentOverlayList = composeOverlayListWith augmentOverlays;
+  makeAugmentableAs = makeExtensibleWith augments;
   makeAugmentable = makeAugmentableAs "augment";
-
-  augmentLib = lib: lib.augment or (makeAugmentable (_: lib)).augment;
+  safeAugmentAs = safeExtendWith makeAugmentable;
+  safeAugment = safeAugmentAs "augment";
 
   wrapLibOverlay = fn: final: prev: {
-    lib = augmentLib prev.lib (if isFunction fn then fn else import fn);
+    lib = safeAugment prev.lib (if isFunction fn then fn else import fn);
   };
 
   wrapLibOverlay' =
@@ -70,7 +78,7 @@ rec {
       overlay = if isFunction fn then fn else import fn;
     in
     {
-      lib = augmentLib prev.lib overlay;
+      lib = safeAugment prev.lib overlay;
       ${libName} = fix' (patches overlay (_: prev.${libName} or prev.lib));
     };
 }

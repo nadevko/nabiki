@@ -132,7 +132,7 @@ rec {
 
   readTemplates = readConfigurationDir (root: config: config // { path = root; });
 
-  listNixesWithDefaultStem =
+  listNixesWithRootStem =
     stem:
     scanDir (
       value: name: type:
@@ -160,5 +160,5 @@ rec {
         [ ]
     );
 
-  listNixes = listNixesWithDefaultStem "package";
+  listNixes = listNixesWithRootStem "package";
 }
