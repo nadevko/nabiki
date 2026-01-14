@@ -5,9 +5,19 @@ let
   inherit (lib.fixedPoints) fix';
   inherit (lib.lists) foldr;
   inherit (lib.trivial) flip mergeAttrs;
-  inherit (lib.attrsets) recursiveUpdate;
+
+  inherit (self.attrsets) pointwisel pointwiser;
 in
 rec {
+  rebase =
+    g: prev:
+    let
+      final = g (prev // final) prev;
+    in
+    final;
+
+  rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
+
   extendBy =
     merger: g: f: final:
     let
@@ -36,17 +46,31 @@ rec {
   makeExtensibleAs = makeExtensibleBy extends;
   makeExtensible = makeExtensibleAs "extend";
 
-  rebase =
-    g: prev:
-    let
-      final = g (prev // final) prev;
-    in
-    final;
+  patches = extendBy pointwiser;
+  patchOverlays = composeOverlaysBy pointwiser;
+  patchOverlayList = composeOverlayListBy patchOverlays;
+  makePatchableAs = makeExtensibleBy patches;
+  makePatchable = makePatchableAs "patch";
 
-  rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
+  augments = extendBy pointwisel;
+  augmentOverlays = composeOverlaysBy pointwisel;
+  augmentOverlayList = composeOverlayListBy augmentOverlays;
+  makeAugmentableAs = makeExtensibleBy augments;
+  makeAugmentable = makeAugmentableAs "augment";
 
-  wrapLibOverlay = libName: fn: final: prev: {
-    lib = prev.lib.extend (_: prev: recursiveUpdate final.${libName} prev);
-    ${libName} = fix' (self: (if isFunction fn then fn else import fn) self prev.lib);
+  augmentLib = lib: lib.augment or (makeAugmentable (_: lib)).augment;
+
+  wrapLibOverlay = fn: final: prev: {
+    lib = augmentLib prev.lib (if isFunction fn then fn else import fn);
   };
+
+  wrapLibOverlay' =
+    libName: fn: final: prev:
+    let
+      overlay = if isFunction fn then fn else import fn;
+    in
+    {
+      lib = augmentLib prev.lib overlay;
+      ${libName} = fix' (patches overlay (_: prev.${libName} or prev.lib));
+    };
 }

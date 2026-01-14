@@ -10,7 +10,6 @@ let
     elemAt
     concatStringsSep
     head
-    unsafeGetAttrPos
     ;
   inherit (lib.fixedPoints) fix';
   inherit (lib.trivial) pipe;
@@ -24,7 +23,7 @@ let
   inherit (lib.strings) levenshteinAtMost levenshtein;
 
   inherit (self.fixedPoints) extends composeOverlayList;
-  inherit (self.trivial) compose;
+  inherit (self.trivial) compose getAttrPosMessage;
 in
 rec {
   getOverride =
@@ -49,10 +48,9 @@ rec {
         else
           ", did you mean ${concatStringsSep ", " (init suggestions)} or ${last suggestions}?";
 
-      attrPos = unsafeGetAttrPos arg requestedAttrs;
-      loc = if attrPos != null then attrPos.file + ":" + toString attrPos.line else "<unknown location>";
+      pos = getAttrPosMessage arg requestedAttrs;
     in
-    ''Function called without required argument "${arg}" at ${loc}${prettySuggestions}'';
+    ''Function called without required argument "${arg}" at ${pos}${prettySuggestions}'';
 
   callPackageWith =
     autoAttrs: fn: attrsAsIs:

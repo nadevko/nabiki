@@ -15,6 +15,7 @@
       overlays = {
         default = import ./overlay.nix;
         lib = import ./overlays/lib.nix;
+        augment = import ./overlays/augment.nix;
       };
       templates = lib.filesystem.readTemplates (_: {
         description = "Most common kasumi usage";

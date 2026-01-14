@@ -17,13 +17,13 @@ let
       "mapAttrsIntersection"
       "bind"
       "partitionAttrs"
-      "zipMerge"
+      "pointwisel"
+      "pointwiser"
       "transposeAttrs"
       "perWith"
       "per"
       "perSystemIn"
       "perSystem"
-      "extractAliases"
       "addAliasesToAttrs"
       "addAliasesToAttrs'"
       "makeCallSetWith"
@@ -58,6 +58,8 @@ let
       "nestedListShallowNixes"
     ];
     fixedPoints = [
+      "rebase"
+      "rebase'"
       "extendBy"
       "composeOverlaysBy"
       "composeOverlayListBy"
@@ -67,9 +69,18 @@ let
       "composeOverlayList"
       "makeExtensibleAs"
       "makeExtensible"
-      "rebase"
-      "rebase'"
+      "patches"
+      "patchOverlays"
+      "patchOverlayList"
+      "makePatchableAs"
+      "makePatchable"
+      "augments"
+      "augmentOverlays"
+      "augmentOverlayList"
+      "makeAugmentableAs"
+      "makeAugmentable"
       "wrapLibOverlay"
+      "wrapLibOverlay'"
     ];
     lists = [
       "splitAt"
@@ -87,7 +98,9 @@ let
     ];
     trivial = [
       "compose"
-      "pipeF"
+      "fpipe"
+      "getAttrPosMessage"
+      "libWarn"
     ];
   };
 in

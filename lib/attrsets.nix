@@ -19,7 +19,6 @@ let
   inherit (lib.attrsets)
     nameValuePair
     genAttrs
-    mergeAttrsList
     concatMapAttrs
     getAttrs
     ;
@@ -66,7 +65,25 @@ rec {
       wrong = build items.wrong;
     };
 
-  zipMerge = zipAttrsWith (_: mergeAttrsList);
+  pointwisel =
+    base: extension:
+    base
+    // mapAttrs (
+      n: v:
+      if isAttrs v && isAttrs (base.${n} or null) then
+        v // base.${n}
+      else if base ? ${n} then
+        base.${n}
+      else
+        v
+    ) extension;
+
+  pointwiser =
+    base: extension:
+    base
+    // mapAttrs (
+      n: v: if isAttrs v && isAttrs (base.${n} or null) then base.${n} // v else v
+    ) extension;
 
   transposeAttrs =
     attrs:
