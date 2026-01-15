@@ -5,7 +5,7 @@ let
   inherit (lib.path) append;
   inherit (lib.attrsets) nameValuePair;
 
-  inherit (self.attrsets) addAliasesToAttrs' addAliasesToAttrs flatMapAttrs;
+  inherit (self.attrsets) addAttrsAliases' addAttrsAliases flatMapAttrs;
   inherit (self.path)
     removeNixExtension
     isHidden
@@ -108,11 +108,11 @@ rec {
 
   readAliasedNixTreeOverlay =
     aliases: root: final: prev:
-    addAliasesToAttrs aliases (rebase (readNixTreeOverlay root) prev);
+    addAttrsAliases aliases (rebase (readNixTreeOverlay root) prev);
 
   readAliasedNixTreeOverlay' =
     root: final: prev:
-    addAliasesToAttrs' (rebase (readNixTreeOverlay root) prev);
+    addAttrsAliases' (rebase (readNixTreeOverlay root) prev);
 
   readConfigurationDir =
     builder: getOverride:

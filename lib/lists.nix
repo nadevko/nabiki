@@ -1,9 +1,8 @@
 self: lib:
 let
-  inherit (builtins) length filter;
+  inherit (builtins) length filter elem;
 
   inherit (lib.trivial) max min;
-  inherit (lib.attrsets) genAttrs;
   inherit (lib.lists) take drop;
 in
 {
@@ -18,10 +17,5 @@ in
       right = drop n' list;
     };
 
-  intersectListsBy =
-    pred: targets:
-    let
-      targetMap = genAttrs targets (_: true);
-    in
-    filter (x: targetMap ? ${pred x});
+  subtractLists = minuend: subtrahend: filter (e: !elem e subtrahend) minuend;
 }

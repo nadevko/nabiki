@@ -8,8 +8,6 @@ let
     mapAttrs
     attrNames
     intersectAttrs
-    filter
-    elem
     partition
     head
     tail
@@ -17,16 +15,11 @@ let
     concatLists
     ;
 
-  inherit (lib.attrsets)
-    nameValuePair
-    genAttrs
-    concatMapAttrs
-    getAttrs
-    mapAttrsToList
-    ;
+  inherit (lib.attrsets) nameValuePair genAttrs mapAttrsToList;
   inherit (lib.trivial) flip;
 
   inherit (self.trivial) compose;
+  inherit (self.lists) subtractLists;
 in
 rec {
   findClosestByPath =
@@ -113,36 +106,65 @@ rec {
 
   perSystem = flake: perSystemIn (attrNames flake.legacyPackages) flake;
 
-  extractAliases = include: exclude: getAttrs (filter (n: !elem n exclude) include);
+  makeAttrsAliases =
+    aliases: set:
+    listToAttrs (
+      flatMapAttrs (
+        category:
+        map (name: {
+          inherit name;
+          value = (set.${category} or { }).${name};
+        })
+      ) aliases
+    );
 
-  addAliasesToAttrs =
-    allIncludes: set:
-    let
-      getExtra =
-        n: v:
-        let
-          includes = allIncludes.${n} or [ ];
-        in
-        if includes == [ ] then { } else extractAliases includes [ "_includes" "_excludes" ] v;
-    in
-    set // concatMapAttrs (n: v: if isAttrs v then getExtra n v else { }) set;
+  addAttrsAliases = aliases: set: makeAttrsAliases aliases set // set;
 
-  addAliasesToAttrs' =
-    set:
-    let
-      defaultExcludes = [
-        "_includes"
-        "_excludes"
-      ];
-    in
-    mapAttrs (_: v: if isAttrs v then removeAttrs v defaultExcludes else v) set
-    // concatMapAttrs (
-      _: v:
-      if !isAttrs v then
-        { }
+  getAliasesWith =
+    {
+      includes,
+      excludes,
+      forceExcludes,
+    }:
+    name: v:
+    map (fnName: nameValuePair fnName v.${fnName}) (
+      v._aliasForce or (subtractLists includes (excludes ++ forceExcludes))
+    );
+
+  makeAttrsAliasesWith' =
+    {
+      includes ? v: v._aliasIncludes or attrNames v,
+      excludes ? v: v._aliasExcludes or [ ],
+      forceExcludes ? [
+        "_aliasForce"
+        "_aliasIncludes"
+        "_aliasExcludes"
+      ],
+      getAliases ? getAliasesWith { inherit includes excludes forceExcludes; },
+    }:
+    morphAttrs (name: v: if isAttrs v then getAliases name v else [ ]);
+
+  addAttrsAliasesWith' =
+    {
+      includes ? v: v._aliasIncludes or attrNames v,
+      excludes ? v: v._aliasExcludes or [ ],
+      forceExcludes ? [
+        "_aliasForce"
+        "_aliasIncludes"
+        "_aliasExcludes"
+      ],
+      getAliases ? getAliasesWith { inherit includes excludes forceExcludes; },
+    }:
+    morphAttrs (
+      name: v:
+      if isAttrs v then
+        getAliases name v ++ [ (nameValuePair name (removeAttrs v forceExcludes)) ]
       else
-        extractAliases (v._includes or attrNames v) ((v._excludes or [ ]) ++ defaultExcludes) v
-    ) set;
+        [ (nameValuePair name v) ]
+    );
+
+  makeAttrsAliases' = makeAttrsAliasesWith' { };
+  addAttrsAliases' = addAttrsAliasesWith' { };
 
   makeCallSetWith =
     caller: getOverride: set: final:
