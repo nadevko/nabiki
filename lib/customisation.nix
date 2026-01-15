@@ -6,51 +6,19 @@ let
     functionArgs
     intersectAttrs
     filter
-    length
-    elemAt
-    concatStringsSep
     head
     ;
   inherit (lib.fixedPoints) fix';
-  inherit (lib.trivial) pipe;
   inherit (lib.customisation) makeOverridable;
-  inherit (lib.lists)
-    take
-    sortOn
-    init
-    last
-    ;
-  inherit (lib.strings) levenshteinAtMost levenshtein;
 
   inherit (self.fixedPoints) extends composeOverlayList;
-  inherit (self.trivial) compose getAttrPosMessage;
+  inherit (self.trivial) compose;
+  inherit (self.debug._internal) getCallErrorMessage;
 in
 rec {
   getOverride =
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
-
-  getCallErrorMessage =
-    allNames: requestedAttrs: arg:
-    let
-      suggestions = pipe allNames [
-        (filter (levenshteinAtMost 2 arg))
-        (sortOn (levenshtein arg))
-        (take 3)
-        (map (x: ''"${x}"''))
-      ];
-
-      prettySuggestions =
-        if suggestions == [ ] then
-          ""
-        else if length suggestions == 1 then
-          ", did you mean ${elemAt suggestions 0}?"
-        else
-          ", did you mean ${concatStringsSep ", " (init suggestions)} or ${last suggestions}?";
-
-      pos = getAttrPosMessage arg requestedAttrs;
-    in
-    ''Function called without required argument "${arg}" at ${pos}${prettySuggestions}'';
 
   callPackageWith =
     autoAttrs: fn: attrsAsIs:
@@ -63,7 +31,7 @@ rec {
     if missing == [ ] then
       makeOverridable callee callArg
     else
-      abort "kasumi.lib.customisation.callPackageWith: ${
+      throw "kasumi.lib.customisation.callPackageWith: ${
         getCallErrorMessage (attrNames (autoAttrs // attrsAsIs)) requestedAttrs (head missing)
       }";
 

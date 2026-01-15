@@ -4,6 +4,7 @@ let
   set = {
     inherit attrsets;
     customisation = import ../lib/customisation.nix final prev;
+    debug = import ../lib/debug.nix final prev;
     filesystem = import ../lib/filesystem.nix final prev;
     fixedPoints = import ../lib/fixedPoints.nix final prev;
     lists = import ../lib/lists.nix final prev;
@@ -25,18 +26,29 @@ attrsets.addAttrsAliases {
     "perRootIn"
     "perSystemIn"
     "perSystem"
-    "addAliasesToAttrs"
-    "addAliasesToAttrs'"
+    "makeAttrsAliases"
+    "addAttrsAliases"
+    "getAliasList"
+    "addAttrsAliasesWith'"
+    "addAttrsAliases'"
     "makeCallSetWith"
     "makeCallPackageSet"
     "makeCallScopeSet"
+    "flatMapAttrs"
+    "morphAttrs"
+    "shouldRecurseForDerivations"
   ];
   customisation = [
     "getOverride"
-    "getCallErrorMessage"
     "callPackageWith"
     "callScopeWith"
     "makeScope"
+  ];
+  debug = [
+    "genPosLibErrorMessage"
+    "getAttrPos"
+    "validateLibAliasesWith"
+    "validateLibWith"
   ];
   filesystem = [
     "flatMapDir"
@@ -84,14 +96,14 @@ attrsets.addAttrsAliases {
     "augmentOverlayList"
     "makeAugmentableAs"
     "makeAugmentable"
-    "wrapLibOverlay"
-    "wrapLibOverlay'"
     "safeAugmentAs"
     "safeAugment"
+    "wrapLibOverlay"
+    "wrapLibOverlay'"
   ];
   lists = [
     "splitAt"
-    "intersectListsBy"
+    "subtractLists"
   ];
   path = [
     "removeExtension"
@@ -103,7 +115,5 @@ attrsets.addAttrsAliases {
   trivial = [
     "compose"
     "fpipe"
-    "getAttrPosMessage"
-    "libWarn"
   ];
 } set

@@ -13,15 +13,22 @@ let
     tail
     isFunction
     concatLists
+    filter
     ;
 
   inherit (lib.attrsets) nameValuePair genAttrs mapAttrsToList;
   inherit (lib.trivial) flip;
+  inherit (lib.strings) hasPrefix;
 
   inherit (self.trivial) compose;
   inherit (self.lists) subtractLists;
 in
 rec {
+  _internal = {
+    getAliasExcludes =
+      set: (set._aliasExcludes or [ ]) ++ (filter (e: hasPrefix "_" e) (attrNames set));
+  };
+
   findClosestByPath =
     pattern:
     let
@@ -120,51 +127,31 @@ rec {
 
   addAttrsAliases = aliases: set: makeAttrsAliases aliases set // set;
 
-  getAliasesWith =
-    {
-      includes,
-      excludes,
-      forceExcludes,
-    }:
-    name: v:
-    map (fnName: nameValuePair fnName v.${fnName}) (
-      v._aliasForce or (subtractLists includes (excludes ++ forceExcludes))
-    );
-
-  makeAttrsAliasesWith' =
-    {
-      includes ? v: v._aliasIncludes or attrNames v,
-      excludes ? v: v._aliasExcludes or [ ],
-      forceExcludes ? [
-        "_aliasForce"
-        "_aliasIncludes"
-        "_aliasExcludes"
-      ],
-      getAliases ? getAliasesWith { inherit includes excludes forceExcludes; },
-    }:
-    morphAttrs (name: v: if isAttrs v then getAliases name v else [ ]);
+  getAliasList =
+    category: set:
+    let
+      includes = set._aliasIncludes or attrNames set;
+      excludes = _internal.getAliasExcludes set;
+      aliases = set._aliases or (subtractLists includes excludes);
+    in
+    map (name: {
+      inherit name;
+      inherit category;
+      value = set.${name};
+    }) aliases;
 
   addAttrsAliasesWith' =
-    {
-      includes ? v: v._aliasIncludes or attrNames v,
-      excludes ? v: v._aliasExcludes or [ ],
-      forceExcludes ? [
-        "_aliasForce"
-        "_aliasIncludes"
-        "_aliasExcludes"
-      ],
-      getAliases ? getAliasesWith { inherit includes excludes forceExcludes; },
-    }:
+    getAliasList:
     morphAttrs (
-      name: v:
-      if isAttrs v then
-        getAliases name v ++ [ (nameValuePair name (removeAttrs v forceExcludes)) ]
+      category: set:
+      if isAttrs set then
+        getAliasList category set
+        ++ [ (nameValuePair category (removeAttrs set _internal.getAliasExcludes set)) ]
       else
-        [ (nameValuePair name v) ]
+        [ (nameValuePair category set) ]
     );
 
-  makeAttrsAliases' = makeAttrsAliasesWith' { };
-  addAttrsAliases' = addAttrsAliasesWith' { };
+  addAttrsAliases' = addAttrsAliasesWith' getAliasList;
 
   makeCallSetWith =
     caller: getOverride: set: final:

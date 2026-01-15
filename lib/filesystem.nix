@@ -82,7 +82,7 @@ rec {
   readModulesSep = sep: readModulesWith { inherit sep; };
   readModules = readModulesWith { };
 
-  readNixTree =
+  loadNixTree =
     pred: root:
     let
       recurse = compose listToAttrs (
@@ -104,7 +104,7 @@ rec {
 
   readNixTreeOverlay =
     root: final: prev:
-    readNixTree (root: import root final prev) root;
+    loadNixTree (root: import root final prev) root;
 
   readAliasedNixTreeOverlay =
     aliases: root: final: prev:
