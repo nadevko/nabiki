@@ -16,7 +16,12 @@ let
     filter
     ;
 
-  inherit (lib.attrsets) nameValuePair genAttrs mapAttrsToList;
+  inherit (lib.attrsets)
+    nameValuePair
+    genAttrs
+    mapAttrsToList
+    isDerivation
+    ;
   inherit (lib.trivial) flip;
   inherit (lib.strings) hasPrefix;
 
@@ -146,7 +151,7 @@ rec {
       category: set:
       if isAttrs set then
         getAliasList category set
-        ++ [ (nameValuePair category (removeAttrs set _internal.getAliasExcludes set)) ]
+        ++ [ (nameValuePair category (removeAttrs set (_internal.getAliasExcludes set))) ]
       else
         [ (nameValuePair category set) ]
     );
@@ -163,5 +168,24 @@ rec {
   flatMapAttrs = pred: set: concatLists (mapAttrsToList pred set);
   morphAttrs = pred: set: listToAttrs (flatMapAttrs pred set);
 
-  shouldRecurseForDerivations = x: isAttrs x && x.recurseForDerivations or false;
+  shouldRecurseForDerivations = x: isAttrs x && (x.recurseForDerivations or false);
+
+  collapsePackagesSep =
+    sep:
+    let
+      recurse =
+        prefix: name: value:
+        let
+          key = if prefix == "" then name else "${prefix}${sep}${name}";
+        in
+        if isDerivation value then
+          [ (nameValuePair key value) ]
+        else if shouldRecurseForDerivations value then
+          flatMapAttrs (recurse key) (value.packages or value)
+        else
+          [ ];
+    in
+    listToAttrs (filter (x: isDerivation x.value) (flatMapAttrs (recurse "")));
+
+  collapsePackages = collapsePackagesSep "-";
 }

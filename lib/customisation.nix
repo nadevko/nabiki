@@ -10,9 +10,11 @@ let
     ;
   inherit (lib.fixedPoints) fix';
   inherit (lib.customisation) makeOverridable;
+  inherit (lib.trivial) flip;
 
   inherit (self.fixedPoints) extends composeOverlayList;
   inherit (self.trivial) compose;
+  inherit (self.attrsets) collapsePackagesSep collapsePackages;
   inherit (self.debug._internal) getCallErrorMessage;
 in
 rec {
@@ -41,24 +43,20 @@ rec {
     makeScope (self: newScope { inherit (self) newScope callPackage; } fn override) newScope;
 
   makeScope =
-    f: prevScope:
-    fix' (
-      scope:
-      f scope
-      // {
-        _type = "scope";
-        recurseForDerivations = true;
+    scope: newScope:
+    let
+      self = scope self // {
+        inherit scope;
+        packages = scope self;
 
-        inherit f;
-        packages = f scope;
+        newScope = scope: newScope (self // scope);
+        callPackage = self.newScope { };
+        callScope = callScopeWith self;
 
-        newScope = extra: prevScope (scope // extra);
-        callPackage = scope.newScope { };
-        callScope = callScopeWith scope;
-
-        overrideScope = g: makeScope prevScope (extends g f);
-        overrideScopeList = compose scope.overrideScope composeOverlayList;
-        rebaseScope = makeScope scope.newScope;
-      }
-    );
+        overrideScope = g: makeScope (extends g scope) newScope;
+        overrideScopeList = compose self.overrideScope composeOverlayList;
+        rebaseScope = scope: makeScope scope self.newScope;
+      };
+    in
+    self;
 }

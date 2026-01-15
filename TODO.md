@@ -2,7 +2,7 @@
 
 ### v1.1-alpha
 
-- [ ] separate findAliases
+- [x] separate findAliases
 - [ ] collapse scopes
 - [ ] packages api
 - [ ] mkflake?

@@ -37,6 +37,8 @@ attrsets.addAttrsAliases {
     "flatMapAttrs"
     "morphAttrs"
     "shouldRecurseForDerivations"
+    "collapsePackages"
+    "collapsePackagesSep"
   ];
   customisation = [
     "getOverride"
