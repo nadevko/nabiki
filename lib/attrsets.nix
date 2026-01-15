@@ -14,6 +14,7 @@ let
     head
     tail
     isFunction
+    concatLists
     ;
 
   inherit (lib.attrsets)
@@ -21,6 +22,7 @@ let
     genAttrs
     concatMapAttrs
     getAttrs
+    mapAttrsToList
     ;
   inherit (lib.trivial) flip;
 
@@ -91,15 +93,15 @@ rec {
       attrValues (mapAttrs (root: mapAttrs (_: nameValuePair root)) attrs)
     );
 
-  perWith =
+  transposeMapAttrs =
     reader: roots: generator:
     transposeAttrs (genAttrs roots (compose generator reader));
 
-  per = perWith (x: x);
+  perRootIn = transposeMapAttrs (x: x);
 
   perSystemIn =
     systems: source: config:
-    perWith (
+    transposeMapAttrs (
       system:
       if config == null then
         source.legacyPackages.${system}
@@ -148,4 +150,9 @@ rec {
 
   makeCallPackageSet = makeCallSetWith "callPackage";
   makeCallScopeSet = makeCallSetWith "callScope";
+
+  flatMapAttrs = pred: set: concatLists (mapAttrsToList pred set);
+  morphAttrs = pred: set: listToAttrs (flatMapAttrs pred set);
+
+  shouldRecurseForDerivations = x: isAttrs x && x.recurseForDerivations or false;
 }

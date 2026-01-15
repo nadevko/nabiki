@@ -1,30 +1,30 @@
 # TODO
 
-### v2-alpha-2
+### v1.1-alpha
 
-- [x] basic packages design
-- [ ] subdirs in `pkgs/`
-- [ ] subscopes
-- [ ] complicated hiddens
-- [ ] api
-- [ ] shells, apps, jobs, checks
-- [x] true lazyness
+- [ ] separate findAliases
+- [ ] collapse scopes
+- [ ] packages api
+- [ ] mkflake?
 
-### v2-beta
+### v1.1-beta
 
 - [ ] formatters
+- [ ] files
 - [ ] git hooks
 - [ ] updaters
 - [ ] tests
 
-### v2-rc
+### v1.1-gamma
 
+- [ ] pr review
+- [ ] hammering
 - [ ] flake module
 - [ ] templates
 - [ ] readme autogen
 - [ ] webpage
 
-### v2
+### v1.1
 
-- [ ] polyfills
+- [ ] polyfills?
 - [ ] docs

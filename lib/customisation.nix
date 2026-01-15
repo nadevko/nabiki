@@ -81,14 +81,14 @@ rec {
         _type = "scope";
         recurseForDerivations = true;
 
-        packagesWith = f;
+        inherit f;
         packages = f scope;
 
         newScope = extra: prevScope (scope // extra);
         callPackage = scope.newScope { };
         callScope = callScopeWith scope;
 
-        overrideScopeBy = g: makeScope prevScope (extends g f);
+        overrideScope = g: makeScope prevScope (extends g f);
         overrideScopeList = compose scope.overrideScope composeOverlayList;
         rebaseScope = makeScope scope.newScope;
       }

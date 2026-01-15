@@ -4,7 +4,7 @@ let
 
   inherit (lib.strings) hasPrefix hasSuffix removeSuffix;
 in
-rec {
+{
   removeExtension =
     name:
     let
@@ -14,12 +14,7 @@ rec {
 
   removeNixExtension = removeSuffix ".nix";
 
-  isRegular = type: type == "regular";
   isDir = type: type == "directory";
-
+  isNix = name: hasSuffix ".nix" name;
   isHidden = hasPrefix ".";
-
-  isNixFile = name: type: isRegular type && hasSuffix ".nix" name;
-  isVisibleNix = name: type: !isHidden name && isNixFile name type;
-  isVisibleDir = name: type: !isHidden name && isDir type;
 }

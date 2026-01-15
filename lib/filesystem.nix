@@ -1,60 +1,59 @@
 self: lib:
 let
-  inherit (builtins)
-    readDir
-    concatLists
-    listToAttrs
-    elem
-    ;
+  inherit (builtins) readDir listToAttrs elem;
 
   inherit (lib.path) append;
-  inherit (lib.attrsets) nameValuePair mapAttrsToList;
+  inherit (lib.attrsets) nameValuePair;
 
-  inherit (self.attrsets) addAliasesToAttrs' addAliasesToAttrs;
+  inherit (self.attrsets) addAliasesToAttrs' addAliasesToAttrs flatMapAttrs;
   inherit (self.path)
     removeNixExtension
     isHidden
-    isVisibleNix
     isDir
-    isVisibleDir
+    isNix
     ;
   inherit (self.trivial) compose;
   inherit (self.fixedPoints) rebase;
 in
 rec {
-  scanDirWith = pred: root: concatLists (mapAttrsToList pred (readDir root));
+  flatMapDir = pred: root: flatMapAttrs (name: pred (append root name) name) (readDir root);
+  flatMapVisible =
+    pred:
+    flatMapDir (
+      root: name: type:
+      if isHidden name then [ ] else pred root name type
+    );
 
-  scanDir =
+  flatMapSubDirs =
     pred: root:
-    scanDirWith (name: type: if isHidden name then [ ] else pred (append root name) name type) root;
+    flatMapVisible (
+      root: _: type:
+      if isDir type then pred root else [ ]
+    ) root;
 
-  scanSubDirs =
-    pred: root:
-    scanDirWith (name: type: if isVisibleDir name type then pred (append root name) else [ ]) root;
-
-  listModules = scanDir (
+  listModules = flatMapVisible (
     root: name: type:
     if isDir type then
       listModules root
-    else if isVisibleNix name type then
+    else if isNix name then
       [ root ]
     else
       [ ]
   );
 
-  flatifyModulesWithKeyMerger =
-    keymerge:
+  readModulesWithKeygen =
+    keygen:
     let
       recurse =
         prefix:
-        scanDir (
+        flatMapVisible (
           root: name: type:
           let
-            key = keymerge prefix name type;
+            key = keygen prefix name type;
           in
           if isDir type then
             recurse key root
-          else if isVisibleNix name type then
+          else if isNix name then
             [ (nameValuePair key root) ]
           else
             [ ]
@@ -62,12 +61,12 @@ rec {
     in
     compose listToAttrs (recurse "");
 
-  flatifyModulesWith =
+  readModulesWith =
     {
       sep ? "-",
       lifts ? [ "default.nix" ],
     }:
-    flatifyModulesWithKeyMerger (
+    readModulesWithKeygen (
       prefix: name: type:
       let
         name' = removeNixExtension name;
@@ -80,21 +79,21 @@ rec {
         "${prefix}${sep}${name'}"
     );
 
-  flatifyModulesSep = sep: flatifyModulesWith { inherit sep; };
-  flatifyModules = flatifyModulesWith { };
+  readModulesSep = sep: readModulesWith { inherit sep; };
+  readModules = readModulesWith { };
 
-  loadNixTree =
+  readNixTree =
     pred: root:
     let
       recurse = compose listToAttrs (
-        scanDir (
+        flatMapVisible (
           root: name: type:
           let
             key = removeNixExtension name;
           in
           if isDir type then
             [ (nameValuePair key (recurse root)) ]
-          else if isVisibleNix name type then
+          else if isNix name then
             [ (nameValuePair key (pred root)) ]
           else
             [ ]
@@ -103,22 +102,22 @@ rec {
     in
     recurse root;
 
-  importNixTreeOverlay =
+  readNixTreeOverlay =
     root: final: prev:
-    loadNixTree (root: import root final prev) root;
+    readNixTree (root: import root final prev) root;
 
-  importAliasedNixTreeOverlay =
+  readAliasedNixTreeOverlay =
     aliases: root: final: prev:
-    addAliasesToAttrs aliases (rebase (importNixTreeOverlay root) prev);
+    addAliasesToAttrs aliases (rebase (readNixTreeOverlay root) prev);
 
-  importAliasedNixTreeOverlay' =
+  readAliasedNixTreeOverlay' =
     root: final: prev:
-    addAliasesToAttrs' (rebase (importNixTreeOverlay root) prev);
+    addAliasesToAttrs' (rebase (readNixTreeOverlay root) prev);
 
   readConfigurationDir =
     builder: getOverride:
     compose listToAttrs (
-      scanDir (
+      flatMapVisible (
         root: name: type:
         if isDir type then [ (nameValuePair name (builder root (getOverride name))) ] else [ ]
       )
@@ -132,14 +131,14 @@ rec {
 
   readTemplates = readConfigurationDir (root: config: config // { path = root; });
 
-  listNixesWithRootStem =
+  listNixDir' =
     stem:
-    scanDir (
+    flatMapVisible (
       value: name: type:
       if isDir type then
-        scanDir (
+        flatMapVisible (
           value: fileName: type:
-          if isVisibleNix fileName type then
+          if isNix fileName then
             [
               {
                 stem = removeNixExtension fileName;
@@ -149,7 +148,7 @@ rec {
           else
             [ ]
         ) value
-      else if isVisibleNix name type then
+      else if isNix name then
         [
           {
             name = removeNixExtension name;
@@ -160,5 +159,5 @@ rec {
         [ ]
     );
 
-  listNixes = listNixesWithRootStem "package";
+  listNixDir = listNixDir' "package";
 }
