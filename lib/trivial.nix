@@ -1,8 +1,14 @@
-self: lib:
+final: prev:
 let
-  inherit (lib.trivial) flip pipe;
+  inherit (prev.trivial) flip pipe;
 in
 {
+  id = x: x;
+  const = x: y: x;
+  snd = x: y: y;
+  apply = f: x: f x;
+  eq = x: y: x == y;
+
   compose =
     f: g: x:
     f (g x);

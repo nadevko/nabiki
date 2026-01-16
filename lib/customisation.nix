@@ -1,4 +1,4 @@
-self: lib:
+final: prev:
 let
   inherit (builtins)
     attrNames
@@ -7,55 +7,80 @@ let
     intersectAttrs
     filter
     head
-    isAttrs
+    length
+    concatStringsSep
+    concatMap
     ;
-  inherit (lib.customisation) makeOverridable;
+  inherit (prev.customisation) makeOverridable;
+  inherit (prev.trivial) pipe;
+  inherit (prev.lists)
+    take
+    sortOn
+    init
+    last
+    findFirst
+    ;
+  inherit (prev.strings) levenshteinAtMost levenshtein;
 
-  inherit (self.fixedPoints) extends composeOverlayList;
-  inherit (self.trivial) compose;
-  inherit (self.debug) throwCallErrorMessage;
+  inherit (final.fixedPoints) extends composeOverlayList;
+  inherit (final.trivial) compose;
+  inherit (final.debug) attrPos;
 in
 rec {
-  getOverride =
-    baseOverride: overrides: name:
-    baseOverride // overrides.${name} or { };
-
-  shouldRecurseForDerivations = x: isAttrs x && x.recurseForDerivations or false;
-
   callPackageWith =
     autoAttrs: fn: attrsAsIs:
     let
       callee = if isFunction fn then fn else import fn;
       requestedAttrs = functionArgs callee;
       callArg = intersectAttrs requestedAttrs autoAttrs // attrsAsIs;
-      missing = filter (n: !(requestedAttrs.${n} || callArg ? ${n})) (attrNames requestedAttrs);
+
+      missing = findFirst (n: !(requestedAttrs.${n} || callArg ? ${n})) null (attrNames requestedAttrs);
     in
-    if missing == [ ] then
+    if missing == null then
       makeOverridable callee callArg
     else
-      throwCallErrorMessage "kasumi.lib.customisation.callPackageWith" (attrNames autoAttrs)
-        (attrNames attrsAsIs)
-        requestedAttrs
-        (head missing);
+      let
+        suggestions =
+          pipe
+            [ attrsAsIs autoAttrs ]
+            [
+              (concatMap attrNames)
+              (filter (levenshteinAtMost 2 missing))
+              (sortOn (levenshtein missing))
+              (take 3)
+            ];
+
+        didYouMean =
+          if suggestions == [ ] then
+            ""
+          else if length suggestions == 1 then
+            ", did you mean '${head suggestions}'?"
+          else
+            ", did you mean '${concatStringsSep "', '" (init suggestions)}' or '${last suggestions}'?";
+
+        pos = attrPos missing requestedAttrs;
+      in
+      throw "kasumi.lib.customisation.callPackageWith: Function called without required argument '${missing}' at ${pos}${didYouMean}";
 
   callScopeWith =
     { newScope, ... }:
     fn: override:
-    makeScope (self: newScope { inherit (self) newScope callPackage; } fn override) newScope;
+    makeScope newScope (self: newScope { inherit (self) newScope callPackage; } fn override);
 
   makeScope =
-    scope: newScope:
+    newScope: scope:
     let
-      self = scope self // {
-        inherit scope;
+      packagesWith = scope self;
+      self = packagesWith // {
+        inherit scope packagesWith;
 
         newScope = scope: newScope (self // scope);
         callPackage = self.newScope { };
         callScope = callScopeWith self;
 
-        overrideScope = g: makeScope (extends g scope) newScope;
+        overrideScope = g: makeScope newScope (extends g scope);
         overrideScopeList = compose self.overrideScope composeOverlayList;
-        rebaseScope = scope: makeScope scope self.newScope;
+        rebaseScope = makeScope self.newScope;
       };
     in
     self;

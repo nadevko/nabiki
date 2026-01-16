@@ -1,152 +1,163 @@
-self: lib:
+final: prev:
 let
   inherit (builtins)
+    concatMap
     isAttrs
     zipAttrsWith
     listToAttrs
-    attrValues
     mapAttrs
     attrNames
     intersectAttrs
-    partition
     head
     tail
     isFunction
-    concatLists
-    filter
+    elem
     ;
 
-  inherit (lib.attrsets) nameValuePair genAttrs mapAttrsToList;
-  inherit (lib.strings) hasPrefix;
+  inherit (prev.attrsets) nameValuePair genAttrs mapAttrsToList;
+  inherit (prev.strings) hasPrefix;
 
-  inherit (self.trivial) compose;
-  inherit (self.lists) subtractLists;
+  inherit (final.trivial) compose id snd;
 in
 rec {
-  _internal = {
-    getAliasExcludes =
-      set: (set._aliasExcludes or [ ]) ++ (filter (e: hasPrefix "_" e) (attrNames set));
-  };
-
-  flatMapAttrs = pred: set: concatLists (mapAttrsToList pred set);
-  morphAttrs = pred: set: listToAttrs (flatMapAttrs pred set);
+  singletonAttrs = name: value: { ${name} = value; };
+  bindAttrs = pred: set: concatMap (name: pred name set.${name}) (attrNames set);
+  mbindAttrs = pred: set: listToAttrs (bindAttrs pred set);
 
   mapAttrsIntersection =
     pred: left: right:
     mapAttrs (name: pred name left.${name}) (intersectAttrs left right);
 
-  bind = name: value: { ${name} = value; };
-
-  partitionAttrs =
-    pred: set:
-    let
-      items = map (name: nameValuePair name set.${name}) (attrNames set);
-      parts = partition ({ name, value }: pred name value) items;
-    in
-    {
-      right = listToAttrs parts.right;
-      wrong = listToAttrs parts.wrong;
-    };
+  partitionAttrs = pred: set: {
+    right = bindAttrs (
+      name: value: if pred name value then [ (nameValuePair name value) ] else [ ]
+    ) set;
+    wrong = bindAttrs (
+      name: value: if !pred name value then [ (nameValuePair name value) ] else [ ]
+    ) set;
+  };
 
   pointwisel =
-    base: extension:
+    base: override:
     base
     // mapAttrs (
-      n: v:
-      if isAttrs v && isAttrs (base.${n} or null) then
-        v // base.${n}
-      else if base ? ${n} then
-        base.${n}
-      else
-        v
-    ) extension;
+      n: v: if isAttrs v && isAttrs (base.${n} or null) then v // base.${n} else base.${n} or v
+    ) override;
 
   pointwiser =
-    base: extension:
+    base: override:
     base
-    // mapAttrs (
-      n: v: if isAttrs v && isAttrs (base.${n} or null) then base.${n} // v else v
-    ) extension;
+    // mapAttrs (n: v: if isAttrs v && isAttrs (base.${n} or null) then base.${n} // v else v) override;
 
-  pivotAttrs =
+  transposeAttrs =
     attrs:
-    zipAttrsWith (_: listToAttrs) (
-      attrValues (mapAttrs (root: mapAttrs (_: nameValuePair root)) attrs)
-    );
+    zipAttrsWith (_: listToAttrs) (mapAttrsToList (root: mapAttrs (_: nameValuePair root)) attrs);
 
-  pivotMapAttrs =
-    reader: roots: generator:
-    pivotAttrs (genAttrs roots (compose generator reader));
+  genAttrsBy =
+    adapter: roots: generator:
+    genAttrs roots (compose generator adapter);
 
-  perRootIn = pivotMapAttrs (x: x);
+  genTransposedAttrsBy =
+    adapter: roots: generator:
+    transposeAttrs (genAttrsBy adapter roots generator);
+
+  perRootIn = genTransposedAttrsBy id;
 
   perSystemIn =
     systems: source: config:
-    pivotMapAttrs (
+    genTransposedAttrsBy (
       system:
       if config == null then
         source.legacyPackages.${system}
       else if isFunction config then
-        config system
+        import source (config system)
       else
         import source (config // { inherit system; })
     ) systems;
 
   perSystem = flake: perSystemIn (attrNames flake.legacyPackages) flake;
 
-  makeAttrsAliases =
-    aliases: set:
-    morphAttrs (
-      category:
-      map (name: {
-        inherit name;
-        value = (set.${category} or { }).${name};
-      })
-    ) aliases;
-
-  addAttrsAliases = aliases: set: makeAttrsAliases aliases set // set;
-
-  getAliasList =
-    category: set:
-    let
-      includes = set._aliasIncludes or attrNames set;
-      excludes = _internal.getAliasExcludes set;
-      aliases = set._aliases or (subtractLists includes excludes);
-    in
-    map (name: {
-      inherit name;
-      inherit category;
-      value = set.${name};
-    }) aliases;
-
-  addAttrsAliasesWith' =
-    getAliasList:
-    morphAttrs (
-      category: set:
-      if isAttrs set then
-        getAliasList category set
-        ++ [ (nameValuePair category (removeAttrs set (_internal.getAliasExcludes set))) ]
-      else
-        [ (nameValuePair category set) ]
-    );
-
-  addAttrsAliases' = addAttrsAliasesWith' getAliasList;
-
   foldPathWith =
     pred: default: pattern:
     let
-      find =
+      recurse =
         deepest: nodesPath: set:
-        let
-          nextDeepest = if set ? ${pattern} then pred deepest set.${pattern} else deepest;
-          nextSet = set.${head nodesPath} or null;
-        in
         if !isAttrs set then
           deepest
-        else if nodesPath == [ ] || nextSet == null then
-          nextDeepest
         else
-          find nextDeepest (tail nodesPath) nextSet;
+          let
+            nextDeepest = if set ? ${pattern} then pred deepest set.${pattern} else deepest;
+            nextSet = set.${head nodesPath} or null;
+          in
+          if nodesPath == [ ] || nextSet == null then
+            nextDeepest
+          else
+            recurse nextDeepest (tail nodesPath) nextSet;
     in
-    find default;
+    recurse default;
+
+  foldPath = foldPathWith snd;
+
+  flattenAttrs =
+    {
+      include ?
+        _: _: _:
+        true,
+      recurseInto ? _: _: isAttrs,
+      rootDepth ? 0,
+
+      getRootPrefix ? getRootKey,
+      getRootKey ? id,
+      mergePrefix ? mergeKey,
+      mergeKey ? prev: name: "${prev}-${name}",
+    }:
+    let
+      recurse =
+        depth: prefix:
+        bindAttrs (
+          name: value:
+          (if include depth name value then [ (nameValuePair (mergeKey prefix name) value) ] else [ ])
+          ++ (
+            if recurseInto depth name value then recurse (depth + 1) (mergePrefix prefix name) value else [ ]
+          )
+        );
+    in
+    mbindAttrs (
+      name: value:
+      (if include rootDepth name value then [ (nameValuePair (getRootKey name) value) ] else [ ])
+      ++ (
+        if recurseInto rootDepth name value then recurse (rootDepth + 1) (getRootPrefix name) value else [ ]
+      )
+    );
+
+  genLibAliasesWith =
+    {
+      blacklist ? [
+        "systems"
+        "licenses"
+        "fetchers"
+        "generators"
+        "cli"
+        "network"
+        "kernel"
+        "types"
+        "maintainers"
+        "teams"
+      ],
+    }@config:
+    flattenAttrs (
+      {
+        include =
+          depth: name: value:
+          depth == 1 && !hasPrefix "_" name && !isAttrs value;
+        recurseInto =
+          depth: name: value:
+          depth == 0 && !elem name blacklist && isAttrs value;
+        getRootKey = id;
+        mergeKey = snd;
+      }
+      // removeAttrs config [ "blacklist" ]
+    );
+
+  genLibAliases = genLibAliasesWith { };
 }

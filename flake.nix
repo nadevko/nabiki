@@ -8,7 +8,7 @@
   outputs =
     { self, nixpkgs, ... }:
     let
-      lib = import ./lib.nix { inherit (nixpkgs) lib; };
+      lib = import ./lib { inherit (nixpkgs) lib; };
     in
     {
       inherit lib;

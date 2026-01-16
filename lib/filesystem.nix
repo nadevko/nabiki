@@ -1,163 +1,143 @@
-self: lib:
+final: prev:
 let
-  inherit (builtins) readDir listToAttrs elem;
-
-  inherit (lib.path) append;
-  inherit (lib.attrsets) nameValuePair;
-
-  inherit (self.attrsets) addAttrsAliases' addAttrsAliases flatMapAttrs;
-  inherit (self.path)
-    removeNixExtension
-    isHidden
-    isDir
-    isNix
+  inherit (builtins)
+    readDir
+    pathExists
+    fromJSON
+    readFile
     ;
-  inherit (self.trivial) compose;
-  inherit (self.fixedPoints) rebase;
+
+  inherit (prev.attrsets) nameValuePair;
+
+  inherit (final.attrsets) bindAttrs mbindAttrs;
+  inherit (final.path)
+    stemOfNix
+    stemOf
+    isVisibleNix
+    isNix
+    isVisible
+    isHidden
+    isVisibleDir
+    isDir
+    ;
+  inherit (final.trivial) id;
 in
 rec {
-  flatMapDir = pred: root: flatMapAttrs (name: pred (append root name) name) (readDir root);
-  flatMapVisible =
-    pred:
-    flatMapDir (
-      root: name: type:
-      if isHidden name then [ ] else pred root name type
-    );
+  bindDir = pred: root: bindAttrs (name: pred (root + "/${name}") name) (readDir root);
+  mbindDir = pred: root: mbindAttrs (name: pred (root + "/${name}") name) (readDir root);
 
-  flatMapSubDirs =
-    pred: root:
-    flatMapVisible (
-      root: _: type:
-      if isDir type then pred root else [ ]
-    ) root;
-
-  listModules = flatMapVisible (
-    root: name: type:
-    if isDir type then
-      listModules root
-    else if isNix name then
-      [ root ]
+  importManifestAs =
+    stem: dir: abs:
+    if dir ? ${stem + ".nix"} then
+      import (abs + ".nix")
+    else if dir ? ${stem + ".json"} then
+      fromJSON (readFile (abs + ".json"))
     else
-      [ ]
-  );
+      { };
 
-  readModulesWithKeygen =
-    keygen:
+  importManifest = importManifestAs "manifest";
+
+  collectFiles =
+    {
+      include ?
+        _: _: _:
+        true,
+      recurseInto ? _: _: isDir,
+      rootDepth ? 0,
+    }:
     let
       recurse =
-        prefix:
-        flatMapVisible (
-          root: name: type:
-          let
-            key = keygen prefix name type;
-          in
-          if isDir type then
-            recurse key root
-          else if isNix name then
-            [ (nameValuePair key root) ]
-          else
-            [ ]
+        depth:
+        bindDir (
+          abs: name: type:
+          (if include depth name type then [ abs ] else [ ])
+          ++ (if recurseInto depth name type then recurse (depth + 1) abs else [ ])
         );
     in
-    compose listToAttrs (recurse "");
+    recurse rootDepth;
 
-  readModulesWith =
+  collectNixFiles = collectFiles {
+    include = _: isVisibleNix;
+    recurseInto = _: isVisibleDir;
+  };
+
+  flattenDir =
     {
-      sep ? "-",
-      lifts ? [ "default.nix" ],
+      include ?
+        _: _: _:
+        true,
+      recurseInto ? _: _: isDir,
+      rootDepth ? 0,
+
+      getRootPrefix ? id,
+      getRootKey ? stemOf,
+      mergePrefix ? prev: name: "${prev}-${name}",
+      mergeKey ? prefix: name: "${prefix}-${stemOf name}",
     }:
-    readModulesWithKeygen (
-      prefix: name: type:
-      let
-        name' = removeNixExtension name;
-      in
-      if prefix == "" then
-        if isDir type then name else name'
-      else if elem name lifts then
-        prefix
-      else
-        "${prefix}${sep}${name'}"
-    );
-
-  readModulesSep = sep: readModulesWith { inherit sep; };
-  readModules = readModulesWith { };
-
-  loadNixTree =
-    pred: root:
     let
-      recurse = compose listToAttrs (
-        flatMapVisible (
-          root: name: type:
-          let
-            key = removeNixExtension name;
-          in
-          if isDir type then
-            [ (nameValuePair key (recurse root)) ]
-          else if isNix name then
-            [ (nameValuePair key (pred root)) ]
-          else
-            [ ]
-        )
-      );
+      recurse =
+        depth: prefix:
+        bindDir (
+          abs: name: type:
+          (if include depth name type then [ (nameValuePair (mergeKey prefix name) abs) ] else [ ])
+          ++ (if recurseInto depth name type then recurse (depth + 1) (mergePrefix prefix name) abs else [ ])
+        );
     in
-    recurse root;
-
-  readNixTreeOverlay =
-    root: final: prev:
-    loadNixTree (root: import root final prev) root;
-
-  readAliasedNixTreeOverlay =
-    aliases: root: final: prev:
-    addAttrsAliases aliases (rebase (readNixTreeOverlay root) prev);
-
-  readAliasedNixTreeOverlay' =
-    root: final: prev:
-    addAttrsAliases' (rebase (readNixTreeOverlay root) prev);
-
-  readConfigurationDir =
-    builder: getOverride:
-    compose listToAttrs (
-      flatMapVisible (
-        root: name: type:
-        if isDir type then [ (nameValuePair name (builder root (getOverride name))) ] else [ ]
+    mbindDir (
+      abs: name: type:
+      (if include rootDepth name type then [ (nameValuePair (getRootKey name) abs) ] else [ ])
+      ++ (
+        if recurseInto rootDepth name type then recurse (rootDepth + 1) (getRootPrefix name) abs else [ ]
       )
     );
 
+  flattenNixDirSep =
+    sep:
+    flattenDir {
+      include = isVisibleNix;
+      recurseInto = _: isVisibleDir;
+      getRootKey = stemOfNix;
+      mergePrefix = prev: name: "${prev}${sep}${name}";
+      mergeKey = prev: name: "${prev}${sep}${stemOfNix name}";
+    };
+
+  flattenNixDir = flattenNixDirSep "-";
+
+  configureDir =
+    pred: getConfig: root:
+    let
+      dir = readDir root;
+    in
+    mbindDir (
+      abs: name: type:
+      let
+        config = getConfig name (importManifestAs name dir abs);
+      in
+      if isVisible name && isDir type then [ (nameValuePair name (pred abs config)) ] else [ ]
+    ) dir;
+
   readNixosConfigurations =
     nixosSystem:
-    readConfigurationDir (
-      root: config: nixosSystem (config // { modules = (listModules root) ++ (config.modules or [ ]); })
+    configureDir (
+      abs: config: nixosSystem (config // { modules = (collectNixFiles abs) ++ (config.modules or [ ]); })
     );
 
-  readTemplates = readConfigurationDir (root: config: config // { path = root; });
+  readTemplates = configureDir (abs: config: config // { path = abs; });
 
-  listNixDir' =
-    stem:
-    flatMapVisible (
-      value: name: type:
-      if isDir type then
-        flatMapVisible (
-          value: fileName: type:
-          if isNix fileName then
-            [
-              {
-                stem = removeNixExtension fileName;
-                inherit name value;
-              }
-            ]
-          else
-            [ ]
-        ) value
-      else if isNix name then
-        [
-          {
-            name = removeNixExtension name;
-            inherit value stem;
-          }
-        ]
+  importLibOverlay =
+    root: final: prev:
+    mbindDir (
+      abs: name: type:
+      if isHidden name then
+        [ ]
+      else if isDir type then
+        let
+          default = abs + "/default.nix";
+        in
+        if pathExists default then [ (nameValuePair name (import default final prev)) ] else [ ]
+      else if name != "default.nix" && isNix name then
+        [ (nameValuePair (stemOfNix name) (import abs final prev)) ]
       else
         [ ]
-    );
-
-  listNixDir = listNixDir' "package";
+    ) root;
 }

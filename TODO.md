@@ -1,31 +1,52 @@
 # TODO
 
-### v1.1-alpha
+## v1.1
 
-- [x] separate findAliases
-- [ ] flat packages scope getter
-- [ ] overlay call tool
-- [ ] packages api
-- [ ] mkflake?
+### ideas
 
-### v1.1-beta
+- [ ] packages
 
-- [ ] formatters
-- [ ] files
-- [ ] git hooks
-- [ ] updaters
-- [ ] tests
+- [ ] kasumi-shell
+  - [ ] files
+  - [ ] git hooks
 
-### v1.1-gamma
+- [ ] kasumi-test tool
+  - [ ] lib
+    - [ ] deepSeq
+    - [ ] nixpkgs.lib collisions
+    - [ ] aliases collisions
+    - [ ] missing static aliases
+  - [ ] nixpkgs-hammering
+  - [ ] nixpkgs-vet
+  - [ ] nixpkgs CI
 
-- [ ] pr review
-- [ ] hammering
-- [ ] flake module
+- [ ] kasumi-update tool
+  - [ ] updaters
+
+- [ ] kasumi-format tool
 - [ ] templates
-- [ ] readme autogen
-- [ ] webpage
 
-### v1.1
+- [ ] kasumi-docs
+  - [ ] webpage
+  - [ ] readme autoupdate
+  - [ ] docs in code
 
-- [ ] polyfills?
-- [ ] docs
+- [ ] kasumi-pr
+
+- [ ] flake module
+
+- [ ] kasumi-release
+
+- [ ] kasumi-commit
+
+- [/] fs combinators
+
+- by type
+  - [ ] JIT
+  - [ ] Nix-to-Nix IR
+  - [ ] Json-to-Nix IR
+  - [ ] AOT
+- by usage
+  - [ ] direct
+  - [ ] interface
+  - [ ] flake-parts
