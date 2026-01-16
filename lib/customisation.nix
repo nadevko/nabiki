@@ -7,20 +7,20 @@ let
     intersectAttrs
     filter
     head
+    isAttrs
     ;
-  inherit (lib.fixedPoints) fix';
   inherit (lib.customisation) makeOverridable;
-  inherit (lib.trivial) flip;
 
   inherit (self.fixedPoints) extends composeOverlayList;
   inherit (self.trivial) compose;
-  inherit (self.attrsets) collapsePackagesSep collapsePackages;
-  inherit (self.debug._internal) getCallErrorMessage;
+  inherit (self.debug) throwCallErrorMessage;
 in
 rec {
   getOverride =
     baseOverride: overrides: name:
     baseOverride // overrides.${name} or { };
+
+  shouldRecurseForDerivations = x: isAttrs x && x.recurseForDerivations or false;
 
   callPackageWith =
     autoAttrs: fn: attrsAsIs:
@@ -33,9 +33,10 @@ rec {
     if missing == [ ] then
       makeOverridable callee callArg
     else
-      throw "kasumi.lib.customisation.callPackageWith: ${
-        getCallErrorMessage (attrNames (autoAttrs // attrsAsIs)) requestedAttrs (head missing)
-      }";
+      throwCallErrorMessage "kasumi.lib.customisation.callPackageWith" (attrNames autoAttrs)
+        (attrNames attrsAsIs)
+        requestedAttrs
+        (head missing);
 
   callScopeWith =
     { newScope, ... }:

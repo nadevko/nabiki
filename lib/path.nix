@@ -8,7 +8,7 @@ in
   removeExtension =
     name:
     let
-      m = match "(.*)\\.[^.]+$" name;
+      m = match ''(.*)\.[^.]+$'' name;
     in
     if m == null then name else head m;
 

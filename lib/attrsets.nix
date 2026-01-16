@@ -17,7 +17,6 @@ let
     ;
 
   inherit (lib.attrsets) nameValuePair genAttrs mapAttrsToList;
-  inherit (lib.trivial) flip;
   inherit (lib.strings) hasPrefix;
 
   inherit (self.trivial) compose;
@@ -29,26 +28,8 @@ rec {
       set: (set._aliasExcludes or [ ]) ++ (filter (e: hasPrefix "_" e) (attrNames set));
   };
 
-  findClosestByPath =
-    pattern:
-    let
-      find =
-        nodesPath: deepest: set:
-        let
-          next = head nodesPath;
-          nextDeepest = set.${pattern} or deepest;
-          nextSet = set.${next} or null;
-        in
-        if !isAttrs set then
-          deepest
-        else if nodesPath == [ ] then
-          nextDeepest
-        else if nextSet == null then
-          nextDeepest
-        else
-          find (tail nodesPath) nextDeepest nextSet;
-    in
-    find;
+  flatMapAttrs = pred: set: concatLists (mapAttrsToList pred set);
+  morphAttrs = pred: set: listToAttrs (flatMapAttrs pred set);
 
   mapAttrsIntersection =
     pred: left: right:
@@ -59,12 +40,12 @@ rec {
   partitionAttrs =
     pred: set:
     let
-      items = partition (n: pred n set.${n}) (attrNames set);
-      build = flip genAttrs (n: set.${n});
+      items = map (name: nameValuePair name set.${name}) (attrNames set);
+      parts = partition ({ name, value }: pred name value) items;
     in
     {
-      right = build items.right;
-      wrong = build items.wrong;
+      right = listToAttrs parts.right;
+      wrong = listToAttrs parts.wrong;
     };
 
   pointwisel =
@@ -87,21 +68,21 @@ rec {
       n: v: if isAttrs v && isAttrs (base.${n} or null) then base.${n} // v else v
     ) extension;
 
-  transposeAttrs =
+  pivotAttrs =
     attrs:
     zipAttrsWith (_: listToAttrs) (
       attrValues (mapAttrs (root: mapAttrs (_: nameValuePair root)) attrs)
     );
 
-  transposeMapAttrs =
+  pivotMapAttrs =
     reader: roots: generator:
-    transposeAttrs (genAttrs roots (compose generator reader));
+    pivotAttrs (genAttrs roots (compose generator reader));
 
-  perRootIn = transposeMapAttrs (x: x);
+  perRootIn = pivotMapAttrs (x: x);
 
   perSystemIn =
     systems: source: config:
-    transposeMapAttrs (
+    pivotMapAttrs (
       system:
       if config == null then
         source.legacyPackages.${system}
@@ -115,15 +96,13 @@ rec {
 
   makeAttrsAliases =
     aliases: set:
-    listToAttrs (
-      flatMapAttrs (
-        category:
-        map (name: {
-          inherit name;
-          value = (set.${category} or { }).${name};
-        })
-      ) aliases
-    );
+    morphAttrs (
+      category:
+      map (name: {
+        inherit name;
+        value = (set.${category} or { }).${name};
+      })
+    ) aliases;
 
   addAttrsAliases = aliases: set: makeAttrsAliases aliases set // set;
 
@@ -153,15 +132,21 @@ rec {
 
   addAttrsAliases' = addAttrsAliasesWith' getAliasList;
 
-  makeCallSetWith =
-    caller: getOverride: set: final:
-    mapAttrs (name: flip final.${caller} (getOverride final name)) set;
-
-  makeCallPackageSet = makeCallSetWith "callPackage";
-  makeCallScopeSet = makeCallSetWith "callScope";
-
-  flatMapAttrs = pred: set: concatLists (mapAttrsToList pred set);
-  morphAttrs = pred: set: listToAttrs (flatMapAttrs pred set);
-
-  shouldRecurseForDerivations = x: isAttrs x && (x.recurseForDerivations or false);
+  foldPathWith =
+    pred: default: pattern:
+    let
+      find =
+        deepest: nodesPath: set:
+        let
+          nextDeepest = if set ? ${pattern} then pred deepest set.${pattern} else deepest;
+          nextSet = set.${head nodesPath} or null;
+        in
+        if !isAttrs set then
+          deepest
+        else if nodesPath == [ ] || nextSet == null then
+          nextDeepest
+        else
+          find nextDeepest (tail nodesPath) nextSet;
+    in
+    find default;
 }

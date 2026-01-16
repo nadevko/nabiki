@@ -11,7 +11,7 @@ let
     filter
     attrNames
     concatMap
-    elemAt
+    head
     ;
 
   inherit (lib.trivial) pipe;
@@ -29,45 +29,43 @@ let
 in
 rec {
   _internal = {
-    validateKasumi = validateLibWith { libPrefix = "kasumi.lib."; };
-
-    getCallErrorMessage =
-      allNames: requestedAttrs: arg:
-      let
-        suggestions = pipe allNames [
-          (filter (levenshteinAtMost 2 arg))
-          (sortOn (levenshtein arg))
-          (take 3)
-          (map (x: ''"${x}"''))
-        ];
-
-        prettySuggestions =
-          if suggestions == [ ] then
-            ""
-          else if length suggestions == 1 then
-            ", did you mean ${elemAt suggestions 0}?"
-          else
-            ", did you mean ${concatStringsSep ", " (init suggestions)} or ${last suggestions}?";
-
-        pos = getAttrPos arg requestedAttrs;
-      in
-      ''Function called without required argument "${arg}" at ${pos}${prettySuggestions}'';
+    validateKasumiLib = validateLibWith { libPrefix = "kasumi.lib"; };
   };
 
-  getAttrPos =
+  throwCallErrorMessage =
+    fnName: autoNames: asIsNames: requestedAttrs: arg:
+    let
+      suggestions = pipe (autoNames ++ asIsNames) [
+        (filter (levenshteinAtMost 2 arg))
+        (sortOn (levenshtein arg))
+        (take 3)
+      ];
+
+      prettySuggestions =
+        if suggestions == [ ] then
+          ""
+        else if length suggestions == 1 then
+          '', did you mean "${head suggestions}"?''
+        else
+          '', did you mean "${concatStringsSep ''", "'' (init suggestions)}" or "${last suggestions}"?'';
+
+      filePos = getAtFilePos arg requestedAttrs;
+    in
+    throw ''${fnName}: Function called without required argument "${arg}" at ${filePos}${prettySuggestions}'';
+
+  getAtFilePos =
     s: set:
     let
-      attrPos = unsafeGetAttrPos s set;
+      pos = unsafeGetAttrPos s set;
     in
-    if attrPos != null then attrPos.file + ":" + toString attrPos.line else "<unknown location>";
-
-  genPosLibErrorMessage =
-    libPrefix: lib: category: name:
-    "${libPrefix}${category}.${name} at ${getAttrPos name lib.${category}}";
+    if pos != null then
+      "${pos.file}:${toString pos.line}:${toString pos.column}"
+    else
+      "<unknown location>";
 
   validateLibAliasesWith =
     {
-      libPrefix ? "lib.",
+      libPrefix ? "lib",
       listAliases ? getAliasList,
       ...
     }:
@@ -75,7 +73,9 @@ rec {
     let
       attrs = filter (n: isAttrs set.${n}) (attrNames set);
       byName = groupBy (x: x.name) (concatMap (n: listAliases n set.${n}) attrs);
-      genError = genPosLibErrorMessage libPrefix set;
+      warnAbout = message: warn ("kasumi.lib.debug.validateLibAliasesWith: " + message);
+      warnAboutCategory =
+        category: name: warn "${libPrefix}.${category}.${name} at ${getAtFilePos name set.${category}}";
 
       collisions = concatMap (
         name:
@@ -84,9 +84,11 @@ rec {
         in
         if length list != 1 then
           [
-            (warn ''kasumi.lib.debug.getLibCollisionWarns: Collision detected! ${toString (length list)} "${name}" dublicates: ${
-              concatStringsSep ", " (map ({ category, ... }: genError category name) list)
-            }'')
+            (warnAbout (
+              toString (length list)
+              + ''"${name}" collisions: ''
+              + concatStringsSep ", " (map ({ category, ... }: warnAboutCategory category name) list)
+            ))
           ]
         else
           [ ]
@@ -95,10 +97,7 @@ rec {
       misses = pipe attrs [
         (concatMap (cat: listAliases cat set.${cat}))
         (filter (a: !(set ? ${a.name})))
-        (map (
-          { category, name, ... }:
-          warn ''kasumi.lib.debug.getLibCollisionWarns: Alias missing ${genError category name}''
-        ))
+        (map ({ category, name, ... }: warnAbout ''alias missing for ${warnAboutCategory category name}''))
       ];
     in
     pipe set (collisions ++ misses);

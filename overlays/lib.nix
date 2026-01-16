@@ -15,14 +15,15 @@ let
 in
 attrsets.addAttrsAliases {
   attrsets = [
-    "findClosestByPath"
+    "flatMapAttrs"
+    "morphAttrs"
     "mapAttrsIntersection"
     "bind"
     "partitionAttrs"
     "pointwisel"
     "pointwiser"
-    "transposeAttrs"
-    "transposeMapAttrs"
+    "pivotAttrs"
+    "pivotMapAttrs"
     "perRootIn"
     "perSystemIn"
     "perSystem"
@@ -31,24 +32,18 @@ attrsets.addAttrsAliases {
     "getAliasList"
     "addAttrsAliasesWith'"
     "addAttrsAliases'"
-    "makeCallSetWith"
-    "makeCallPackageSet"
-    "makeCallScopeSet"
-    "flatMapAttrs"
-    "morphAttrs"
-    "shouldRecurseForDerivations"
-    "collapsePackages"
-    "collapsePackagesSep"
+    "foldPathWith"
   ];
   customisation = [
     "getOverride"
+    "shouldRecurseForDerivations"
     "callPackageWith"
     "callScopeWith"
     "makeScope"
   ];
   debug = [
-    "genPosLibErrorMessage"
-    "getAttrPos"
+    "throwCallErrorMessage"
+    "getAtFilePos"
     "validateLibAliasesWith"
     "validateLibWith"
   ];

@@ -2,21 +2,15 @@ self: lib:
 let
   inherit (builtins) isFunction;
 
-  inherit (lib.fixedPoints) fix';
+  inherit (lib.fixedPoints) fix fix';
   inherit (lib.lists) foldr;
   inherit (lib.trivial) flip mergeAttrs;
 
   inherit (self.attrsets) pointwisel pointwiser;
 in
 rec {
-  rebase =
-    g: prev:
-    let
-      final = g (prev // final) prev;
-    in
-    final;
-
-  rebase' = g: prev: rebase g prev // { __unfix__ = prev; };
+  rebase = g: prev: fix (final: g (prev // final) prev);
+  rebase' = g: prev: fix' (final: g (prev // final) prev);
 
   extendWith =
     merger: g: f: final:
@@ -79,6 +73,10 @@ rec {
     in
     {
       lib = safeAugment prev.lib overlay;
-      ${libName} = fix' (patches overlay (_: prev.${libName} or prev.lib));
+      ${libName} =
+        if prev ? ${libName} then
+          safeAugment prev.${libName} overlay
+        else
+          makeAugmentable (patches overlay (_: prev.${libName} or prev.lib));
     };
 }

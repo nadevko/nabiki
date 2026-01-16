@@ -17,5 +17,6 @@ in
       right = drop n' list;
     };
 
-  subtractLists = minuend: subtrahend: filter (e: !elem e subtrahend) minuend;
+  subtractLists =
+    minuend: subtrahend: if subtrahend == [ ] then minuend else filter (e: !elem e subtrahend) minuend;
 }
