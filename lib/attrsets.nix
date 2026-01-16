@@ -16,12 +16,7 @@ let
     filter
     ;
 
-  inherit (lib.attrsets)
-    nameValuePair
-    genAttrs
-    mapAttrsToList
-    isDerivation
-    ;
+  inherit (lib.attrsets) nameValuePair genAttrs mapAttrsToList;
   inherit (lib.trivial) flip;
   inherit (lib.strings) hasPrefix;
 
@@ -169,23 +164,4 @@ rec {
   morphAttrs = pred: set: listToAttrs (flatMapAttrs pred set);
 
   shouldRecurseForDerivations = x: isAttrs x && (x.recurseForDerivations or false);
-
-  collapsePackagesSep =
-    sep:
-    let
-      recurse =
-        prefix: name: value:
-        let
-          key = if prefix == "" then name else "${prefix}${sep}${name}";
-        in
-        if isDerivation value then
-          [ (nameValuePair key value) ]
-        else if shouldRecurseForDerivations value then
-          flatMapAttrs (recurse key) (value.packages or value)
-        else
-          [ ];
-    in
-    listToAttrs (filter (x: isDerivation x.value) (flatMapAttrs (recurse "")));
-
-  collapsePackages = collapsePackagesSep "-";
 }

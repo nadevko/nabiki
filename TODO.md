@@ -3,7 +3,8 @@
 ### v1.1-alpha
 
 - [x] separate findAliases
-- [ ] collapse scopes
+- [ ] flat packages scope getter
+- [ ] overlay call tool
 - [ ] packages api
 - [ ] mkflake?
 

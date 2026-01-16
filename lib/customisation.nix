@@ -47,7 +47,6 @@ rec {
     let
       self = scope self // {
         inherit scope;
-        packages = scope self;
 
         newScope = scope: newScope (self // scope);
         callPackage = self.newScope { };
