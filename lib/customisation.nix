@@ -2,7 +2,6 @@ final: prev:
 let
   inherit (builtins)
     attrNames
-    isFunction
     functionArgs
     intersectAttrs
     filter
@@ -22,22 +21,21 @@ let
     ;
   inherit (prev.strings) levenshteinAtMost levenshtein;
 
-  inherit (final.fixedPoints) extends composeOverlayList;
-  inherit (final.trivial) compose;
+  inherit (final.trivial) invoke;
   inherit (final.debug) attrPos;
 in
 rec {
-  callPackageWith =
+  call =
     autoAttrs: fn: attrsAsIs:
     let
-      callee = if isFunction fn then fn else import fn;
+      callee = invoke fn;
       requestedAttrs = functionArgs callee;
       callArg = intersectAttrs requestedAttrs autoAttrs // attrsAsIs;
 
-      missing = findFirst (n: !(requestedAttrs.${n} || callArg ? ${n})) null (attrNames requestedAttrs);
+      missing = findFirst (n: !(callArg ? ${n} || requestedAttrs.${n})) null (attrNames requestedAttrs);
     in
     if missing == null then
-      makeOverridable callee callArg
+      callee callArg
     else
       let
         suggestions =
@@ -60,28 +58,7 @@ rec {
 
         pos = attrPos missing requestedAttrs;
       in
-      throw "kasumi.lib.customisation.callPackageWith: Function called without required argument '${missing}' at ${pos}${didYouMean}";
+      throw "kasumi.lib.customisation.call: Function called without required argument '${missing}' at ${pos}${didYouMean}";
 
-  callScopeWith =
-    { newScope, ... }:
-    fn: override:
-    makeScope newScope (self: newScope { inherit (self) newScope callPackage; } fn override);
-
-  makeScope =
-    newScope: scope:
-    let
-      packagesWith = scope self;
-      self = packagesWith // {
-        inherit scope packagesWith;
-
-        newScope = scope: newScope (self // scope);
-        callPackage = self.newScope { };
-        callScope = callScopeWith self;
-
-        overrideScope = g: makeScope newScope (extends g scope);
-        overrideScopeList = compose self.overrideScope composeOverlayList;
-        rebaseScope = makeScope self.newScope;
-      };
-    in
-    self;
+  callPackageWith = ctx: fn: makeOverridable (call ctx fn);
 }

@@ -47,6 +47,21 @@
   - [ ] Json-to-Nix IR
   - [ ] AOT
 - by usage
-  - [ ] direct
-  - [ ] interface
+  - [ ] kasumi-lib.*
+  - [ ] mkflake
   - [ ] flake-parts
+
+- [ ] RFCs
+  - [ ] 0140 by-name
+  - [ ] 0192 pins.nix
+  - [ ] 0075 declarative wrappers
+  - [ ] draft feature parameter names
+
+- nix cost of ownership top:
+  - nix: derivation/stdenvNoCC
+  - bash: stdenvNoCC
+  - c/cpp: stdenv
+  - zig: stdenvNoCC+zig
+  - go: buildGoModule
+  - c/cpp: static/musl/llvm stdenv
+  - rust: $T_{build} \propto e^{S_{rust}}$

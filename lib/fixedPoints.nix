@@ -1,14 +1,18 @@
 final: prev:
 let
-  inherit (builtins) isFunction length elemAt;
+  inherit (builtins) length elemAt;
 
   inherit (prev.fixedPoints) fix fix';
   inherit (prev.lists) foldr;
   inherit (prev.trivial) flip mergeAttrs;
 
   inherit (final.attrsets) pointwisel pointwiser;
+  inherit (final.trivial) invoke;
 in
 rec {
+  rebase = g: prev: fix (self: invoke g self prev);
+  rebase' = g: prev: fix' (self: invoke g self prev);
+
   makeMixer =
     merger: g: f: final:
     let
@@ -25,11 +29,11 @@ rec {
     fix' (final: g (merger prev final) prev);
 
   makeFuse =
-    merger: gBase: gOverride: final: prev:
+    merger: g: h: final: prev:
     let
-      base = gBase final prev;
+      base = g final prev;
     in
-    merger base (gOverride final (merger prev base));
+    merger base (h final (merger prev base));
 
   makeFold = flip foldr (final: prev: { });
 
@@ -38,8 +42,8 @@ rec {
     fix' (self: f self // { ${name} = g: makeTemplate extends name (extends g f); });
 
   forceMix =
-    makeExtensible: name: extensible:
-    extensible.${name} or (makeExtensible (_: extensible)).${name};
+    makeTemplate: mix: template:
+    template.${mix} or (makeTemplate (_: template)).${mix};
 
   extends = makeMixer mergeAttrs;
   rebaseExtension = makeRebase mergeAttrs;
@@ -71,22 +75,20 @@ rec {
   forceAugmentAs = forceMix makeAugmentable;
   forceAugment = forceAugmentAs "augment";
 
-  augmentLib = fn: final: prev: {
-    lib = forceAugment prev.lib (if isFunction fn then fn else import fn);
-  };
+  augmentLib = fn: final: prev: { lib = forceAugment prev.lib (invoke fn); };
 
   augmentLibAs =
     libName: fn: final: prev:
     let
-      overlay = if isFunction fn then fn else import fn;
+      g = invoke fn;
     in
     {
-      lib = forceAugment prev.lib overlay;
+      lib = forceAugment prev.lib g;
       ${libName} =
         if prev ? ${libName} then
-          forceAugment prev.${libName} overlay
+          forceAugment prev.${libName} g
         else
-          makeAugmentable (patches overlay (_: prev.${libName} or prev.lib));
+          makeAugmentable (patches g (_: prev.${libName} or prev.lib));
     };
 
   dfold =

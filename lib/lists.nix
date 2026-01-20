@@ -1,11 +1,6 @@
 final: prev:
 let
-  inherit (builtins)
-    length
-    filter
-    elem
-    listToAttrs
-    ;
+  inherit (builtins) length filter listToAttrs;
 
   inherit (prev.trivial) max min;
   inherit (prev.lists) take drop;
@@ -23,8 +18,15 @@ in
       right = drop n' list;
     };
 
-  subtractLists =
-    minuend: subtrahend: if subtrahend == [ ] then minuend else filter (e: !elem e subtrahend) minuend;
+  intersectStrings =
+    base: target:
+    if target == [ ] then
+      [ ]
+    else
+      let
+        index = listToAttrs (map (e: nameValuePair (toString e) null) target);
+      in
+      filter (e: index ? "${toString e}") base;
 
   subtractStrings =
     minuend: subtrahend:
@@ -32,7 +34,7 @@ in
       minuend
     else
       let
-        index = listToAttrs (map (e: nameValuePair (toString e)) subtrahend);
+        index = listToAttrs (map (e: nameValuePair (toString e) null) subtrahend);
       in
-      filter (e: !index ? "${e}") minuend;
+      filter (e: !index ? "${toString e}") minuend;
 }

@@ -1,11 +1,6 @@
 final: prev:
 let
-  inherit (builtins)
-    readDir
-    pathExists
-    fromJSON
-    readFile
-    ;
+  inherit (builtins) readDir pathExists;
 
   inherit (prev.attrsets) nameValuePair;
 
@@ -15,93 +10,81 @@ let
     stemOf
     isVisibleNix
     isNix
-    isVisible
     isHidden
     isVisibleDir
     isDir
     ;
-  inherit (final.trivial) id;
+  inherit (final.trivial) const;
 in
 rec {
   bindDir = pred: root: bindAttrs (name: pred (root + "/${name}") name) (readDir root);
   mbindDir = pred: root: mbindAttrs (name: pred (root + "/${name}") name) (readDir root);
 
-  importManifestAs =
-    stem: dir: abs:
-    if dir ? ${stem + ".nix"} then
-      import (abs + ".nix")
-    else if dir ? ${stem + ".json"} then
-      fromJSON (readFile (abs + ".json"))
-    else
-      { };
-
-  importManifest = importManifestAs "manifest";
-
   collectFiles =
     {
-      include ?
-        _: _: _:
-        true,
-      recurseInto ? _: _: isDir,
-      rootDepth ? 0,
+      recurseInto ? name: type: isDir type,
+      include ? name: type: true,
+      mapAttr ?
+        abs: name: type:
+        abs,
     }:
     let
-      recurse =
-        depth:
-        bindDir (
-          abs: name: type:
-          (if include depth name type then [ abs ] else [ ])
-          ++ (if recurseInto depth name type then recurse (depth + 1) abs else [ ])
-        );
+      recurse = bindDir (
+        abs: name: type:
+        (if include name type then [ (mapAttr abs name type) ] else [ ])
+        ++ (if recurseInto name type then recurse abs else [ ])
+      );
     in
-    recurse rootDepth;
+    recurse;
 
-  collectNixFiles = collectFiles {
-    include = _: isVisibleNix;
+  collectNixes = collectFiles {
     recurseInto = _: isVisibleDir;
+    include = _: isVisibleNix;
   };
 
   flattenDir =
     {
-      include ?
-        _: _: _:
-        true,
-      recurseInto ? _: _: isDir,
-      rootDepth ? 0,
+      recurseInto ? name: type: isDir type,
+      include ? name: type: !isDir type,
 
-      getRootPrefix ? id,
-      getRootKey ? stemOf,
-      mergePrefix ? prev: name: "${prev}-${name}",
-      mergeKey ? prefix: name: "${prefix}-${stemOf name}",
+      concatPrefix ?
+        prefix: name: type:
+        "${prefix}-${name}",
+      concatName ?
+        prefix: name: type:
+        "${prefix}-${stemOf name}",
+
+      toRootPrefix ? name: type: name,
+      toRootName ? name: type: stemOf name,
     }:
     let
-      recurse =
-        depth: prefix:
-        bindDir (
-          abs: name: type:
-          (if include depth name type then [ (nameValuePair (mergeKey prefix name) abs) ] else [ ])
-          ++ (if recurseInto depth name type then recurse (depth + 1) (mergePrefix prefix name) abs else [ ])
-        );
+      makeRecurse =
+        toPrefix: toName: abs: name: type:
+        let
+          entry = nameValuePair (toName name type) abs;
+          subtree = recurse (toPrefix name type) abs;
+        in
+        (if include name type then [ entry ] else [ ]) ++ (if recurseInto name type then subtree else [ ]);
+      recurse = prefix: bindDir (makeRecurse (concatPrefix prefix) (concatName prefix));
     in
-    mbindDir (
-      abs: name: type:
-      (if include rootDepth name type then [ (nameValuePair (getRootKey name) abs) ] else [ ])
-      ++ (
-        if recurseInto rootDepth name type then recurse (rootDepth + 1) (getRootPrefix name) abs else [ ]
-      )
-    );
+    mbindDir (makeRecurse toRootPrefix toRootName);
 
-  flattenNixDirSep =
+  flattenNixesSep =
     sep:
     flattenDir {
-      include = isVisibleNix;
-      recurseInto = _: isVisibleDir;
-      getRootKey = stemOfNix;
-      mergePrefix = prev: name: "${prev}${sep}${name}";
-      mergeKey = prev: name: "${prev}${sep}${stemOfNix name}";
+      include = name: _: isVisibleNix name;
+      recurseInto = isVisibleDir;
+      toRootPrefix = const;
+      toRootName = name: _: stemOfNix name;
+      concatPrefix =
+        prefix: name: _:
+        "${prefix}${sep}${name}";
+      concatName =
+        prefix: name: _:
+        "${prefix}${sep}${stemOfNix name}";
     };
 
-  flattenNixDir = flattenNixDirSep "-";
+  flattenNixes = flattenNixesSep "-";
 
   configureDir =
     pred: getConfig: root:
@@ -111,15 +94,15 @@ rec {
     mbindDir (
       abs: name: type:
       let
-        config = getConfig name (importManifestAs name dir abs);
+        config = getConfig name (if dir ? ${name + ".nix"} then import (abs + ".nix") else { });
       in
-      if isVisible name && isDir type then [ (nameValuePair name (pred abs config)) ] else [ ]
+      if !isDir type || isHidden name then [ ] else [ (nameValuePair name (pred abs config)) ]
     ) dir;
 
   readNixosConfigurations =
     nixosSystem:
     configureDir (
-      abs: config: nixosSystem (config // { modules = (collectNixFiles abs) ++ (config.modules or [ ]); })
+      abs: config: nixosSystem (config // { modules = (collectNixes abs) ++ (config.modules or [ ]); })
     );
 
   readTemplates = configureDir (abs: config: config // { path = abs; });

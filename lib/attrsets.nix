@@ -38,20 +38,20 @@ rec {
   };
 
   pointwisel =
-    base: override:
+    base: augment:
     base
     // mapAttrs (
       n: v: if isAttrs v && isAttrs (base.${n} or null) then v // base.${n} else base.${n} or v
-    ) override;
+    ) augment;
 
   pointwiser =
     base: override:
     base
     // mapAttrs (n: v: if isAttrs v && isAttrs (base.${n} or null) then base.${n} // v else v) override;
 
-  transposeAttrs =
-    attrs:
-    zipAttrsWith (_: listToAttrs) (mapAttrsToList (root: mapAttrs (_: nameValuePair root)) attrs);
+  transposeAttrs = compose (zipAttrsWith (_: listToAttrs)) (
+    mapAttrsToList (root: mapAttrs (_: nameValuePair root))
+  );
 
   genAttrsBy =
     adapter: roots: generator:
@@ -64,15 +64,16 @@ rec {
   perRootIn = genTransposedAttrsBy id;
 
   perSystemIn =
-    systems: source: config:
+    systems: flake: config:
+    let
+      isDynamic = isFunction config;
+    in
     genTransposedAttrsBy (
       system:
-      if config == null then
-        source.legacyPackages.${system}
-      else if isFunction config then
-        import source (config system)
+      if config == { } then
+        flake.legacyPackages.${system}
       else
-        import source (config // { inherit system; })
+        import flake ((if isDynamic then config system else config) // { inherit system; })
     ) systems;
 
   perSystem = flake: perSystemIn (attrNames flake.legacyPackages) flake;
@@ -98,66 +99,32 @@ rec {
 
   foldPath = foldPathWith snd;
 
-  flattenAttrs =
-    {
-      include ?
-        _: _: _:
-        true,
-      recurseInto ? _: _: isAttrs,
-      rootDepth ? 0,
-
-      getRootPrefix ? getRootKey,
-      getRootKey ? id,
-      mergePrefix ? mergeKey,
-      mergeKey ? prev: name: "${prev}-${name}",
-    }:
-    let
-      recurse =
-        depth: prefix:
-        bindAttrs (
-          name: value:
-          (if include depth name value then [ (nameValuePair (mergeKey prefix name) value) ] else [ ])
-          ++ (
-            if recurseInto depth name value then recurse (depth + 1) (mergePrefix prefix name) value else [ ]
-          )
-        );
-    in
+  genLibAliasesWithoutPred =
+    exclude:
     mbindAttrs (
       name: value:
-      (if include rootDepth name value then [ (nameValuePair (getRootKey name) value) ] else [ ])
-      ++ (
-        if recurseInto rootDepth name value then recurse (rootDepth + 1) (getRootPrefix name) value else [ ]
-      )
+      if !isAttrs value || exclude name value then
+        [ ]
+      else
+        bindAttrs (
+          name: value: if isAttrs value || hasPrefix "_" name then [ ] else [ (nameValuePair name value) ]
+        ) value
     );
 
-  genLibAliasesWith =
-    {
-      blacklist ? [
-        "systems"
-        "licenses"
-        "fetchers"
-        "generators"
-        "cli"
-        "network"
-        "kernel"
-        "types"
-        "maintainers"
-        "teams"
-      ],
-    }@config:
-    flattenAttrs (
-      {
-        include =
-          depth: name: value:
-          depth == 1 && !hasPrefix "_" name && !isAttrs value;
-        recurseInto =
-          depth: name: value:
-          depth == 0 && !elem name blacklist && isAttrs value;
-        getRootKey = id;
-        mergeKey = snd;
-      }
-      // removeAttrs config [ "blacklist" ]
-    );
+  genLibAliasesWithout =
+    blacklist: genLibAliasesWithoutPred (name: _: elem name blacklist || hasPrefix "_" name);
 
-  genLibAliases = genLibAliasesWith { };
+  genLibAliases = genLibAliasesWithout [
+    "systems"
+    "licenses"
+    "fetchers"
+    "generators"
+    "cli"
+    "network"
+    "kernel"
+    "types"
+    "maintainers"
+    "features"
+    "teams"
+  ];
 }
