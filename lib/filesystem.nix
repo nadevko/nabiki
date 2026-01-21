@@ -91,9 +91,10 @@ rec {
     let
       dir = readDir root;
     in
-    mbindDir (
-      abs: name: type:
+    mbindAttrs (
+      name: type:
       let
+        abs = root + "/${name}";
         config = getConfig name (if dir ? ${name + ".nix"} then import (abs + ".nix") else { });
       in
       if !isDir type || isHidden name then [ ] else [ (nameValuePair name (pred abs config)) ]
