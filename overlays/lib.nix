@@ -4,6 +4,7 @@ final: prev: {
   debug = import ../lib/debug.nix final prev;
   filesystem = import ../lib/filesystem.nix final prev;
   fixedPoints = import ../lib/fixedPoints.nix final prev;
+  flakes = import ../lib/flakes.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
   path = import ../lib/path.nix final prev;
@@ -19,9 +20,6 @@ final: prev: {
     pointwiser
     transposeAttrs
     genTransposedAttrsBy
-    perRootIn
-    perSystemIn
-    perSystem
     foldPathWith
     ;
   inherit (final.customisation)

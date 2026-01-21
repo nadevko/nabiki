@@ -10,14 +10,13 @@ let
     intersectAttrs
     head
     tail
-    isFunction
     elem
     ;
 
   inherit (prev.attrsets) nameValuePair genAttrs mapAttrsToList;
   inherit (prev.strings) hasPrefix;
 
-  inherit (final.trivial) compose id snd;
+  inherit (final.trivial) compose snd;
 in
 rec {
   singletonAttrs = name: value: { ${name} = value; };
@@ -60,23 +59,6 @@ rec {
   genTransposedAttrsBy =
     adapter: roots: generator:
     transposeAttrs (genAttrsBy adapter roots generator);
-
-  perRootIn = genTransposedAttrsBy id;
-
-  perSystemIn =
-    systems: flake: config:
-    let
-      isDynamic = isFunction config;
-    in
-    genTransposedAttrsBy (
-      system:
-      if config == { } then
-        flake.legacyPackages.${system}
-      else
-        import flake ((if isDynamic then config system else config) // { inherit system; })
-    ) systems;
-
-  perSystem = flake: perSystemIn (attrNames flake.legacyPackages) flake;
 
   foldPathWith =
     pred: default: pattern:

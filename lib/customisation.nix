@@ -27,19 +27,19 @@ let
 in
 rec {
   callWith =
-    autoAttrs: callee: attrsAsIs:
+    autoAttrs: callee: attrs:
     let
-      requestedAttrs = functionArgs callee;
-      callArg = intersectAttrs requestedAttrs autoAttrs // attrsAsIs;
-      missing = findFirst (n: !(callArg ? ${n} || requestedAttrs.${n})) null (attrNames requestedAttrs);
+      calleeArgs = functionArgs callee;
+      callAttrs = intersectAttrs calleeArgs autoAttrs // attrs;
+      missing = findFirst (n: !(callAttrs ? ${n} || calleeArgs.${n})) null (attrNames calleeArgs);
     in
     if missing == null then
-      callee callArg
+      callee callAttrs
     else
       let
         suggestions =
           pipe
-            [ attrsAsIs autoAttrs ]
+            [ attrs autoAttrs ]
             [
               (concatMap attrNames)
               (filter (levenshteinAtMost 2 missing))
@@ -55,11 +55,11 @@ rec {
           else
             ", did you mean '${concatStringsSep "', '" (init suggestions)}' or '${last suggestions}'?";
 
-        pos = attrPos missing requestedAttrs;
+        pos = attrPos missing calleeArgs;
       in
-      throw "kasumi.lib.customisation.call: Function called without required argument '${missing}' at ${pos}${didYouMean}";
+      abort "kasumi.lib.customisation.call: Function called without required argument '${missing}' at ${pos}${didYouMean}";
 
-  callPackageWith = ctx: fn: makeOverridable (callWith ctx (invoke fn));
+  callPackageWith = autoAttrs: fn: makeOverridable (callWith autoAttrs (invoke fn));
 
   makeScopeWith =
     pkgs: f:

@@ -3,6 +3,7 @@ let
   inherit (builtins) readDir pathExists;
 
   inherit (prev.attrsets) nameValuePair;
+  inherit (prev.trivial) const;
 
   inherit (final.attrsets) bindAttrs mbindAttrs;
   inherit (final.path)
@@ -14,7 +15,6 @@ let
     isVisibleDir
     isDir
     ;
-  inherit (final.trivial) const;
 in
 rec {
   bindDir = pred: root: bindAttrs (name: pred (root + "/${name}") name) (readDir root);
@@ -124,4 +124,24 @@ rec {
       else
         [ ]
     ) root;
+
+  readShards =
+    {
+      shardDepth ? 0,
+      recurseInto ? name: type: true,
+      include ? name: type: true,
+      caller ? abs: name: type: [ (nameValuePair name abs) ],
+    }:
+    root:
+    let
+      enterShards =
+        depth: abs: name: type:
+        if depth < shardDepth && recurseInto name type then
+          bindDir (enterShards (depth + 1)) abs
+        else if include name type then
+          caller abs name type
+        else
+          [ ];
+    in
+    mbindDir (enterShards 0) root;
 }
