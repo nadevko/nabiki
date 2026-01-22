@@ -120,14 +120,14 @@ rec {
         concat: name: value:
         if isDerivation value then
           [ (nameValuePair (concat name) value) ]
-        else if isAttrs value && value ? entries then
-          recurse (concat name) value.entries
+        else if isAttrs value && value ? self then
+          recurse (concat name) value.self
         else
           [ ];
 
       recurse = prefix: bindAttrs (makeRecurse (n: "${prefix}${sep}${n}"));
     in
-    mbindAttrs (makeRecurse id) (scope.entries or scope);
+    mbindAttrs (makeRecurse id) (scope.self or scope);
 
   collapseScope = collapseScopeSep "-";
 }

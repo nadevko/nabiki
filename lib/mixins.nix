@@ -1,5 +1,7 @@
 final: prev:
 let
+  inherit (builtins) isFunction;
+
   inherit (prev.lists) foldr;
   inherit (prev.trivial) flip mergeAttrs;
 
@@ -8,15 +10,15 @@ let
 in
 rec {
   makeMixMerge =
-    merger: g: f: final:
+    merger: g: rattrs: final:
     let
-      prev = f final;
+      prev = rattrs final;
     in
     merger prev (g final prev);
 
   makeMixRebaseWith =
-    fix: merger: fn: prev:
-    fix (final: fn (merger prev final) prev);
+    fix: merger: g: prev:
+    fix (final: g (merger prev final) prev);
 
   makeMixRebase = makeMixRebaseWith fix;
   makeMixRebase' = makeMixRebaseWith fix';
@@ -50,4 +52,15 @@ rec {
   rebaseMixl' = makeMixRebase' pointwisel;
   fuseMixl = makeMixFuse pointwisel;
   foldMixl = makeMixFold fuseMixl;
+
+  toMixin =
+    g:
+    if isFunction g then
+      final: prev:
+      let
+        prev' = g prev;
+      in
+      if isFunction prev' then g final prev else prev'
+    else
+      final: prev: g;
 }

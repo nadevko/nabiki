@@ -112,7 +112,7 @@ rec {
     config // { path = abs; }
   );
 
-  libMixin =
+  readLibMixin =
     root: final: prev:
     mbindDir (
       abs: name: type:
@@ -128,74 +128,4 @@ rec {
       else
         [ ]
     ) root;
-
-  listShards =
-    {
-      shardDepth ? 0,
-      recurseInto ? name: type: true,
-      include ? name: type: true,
-      caller ? abs: name: type: [ (nameValuePair name abs) ],
-    }:
-    root:
-    let
-      enterShards =
-        depth: abs: name: type:
-        if depth < shardDepth && recurseInto name type then
-          bindDir (enterShards (depth + 1)) abs
-        else if include name type then
-          caller abs name type
-        else
-          [ ];
-    in
-    mbindDir (enterShards 0) root;
-
-  importScope =
-    let
-      loadIn =
-        dir: abs: name: f:
-        if dir ? ${name} then f (abs + "/${name}") else { };
-
-      recurse =
-        scope: abs:
-        let
-          package = abs + "/package.nix";
-        in
-        if pathExists package then
-          let
-            pins = abs + "/pins.nix";
-          in
-          if pathExists pins then scope.callScopeWith pins package else scope.callScope package
-        else
-          scope.fuse (
-            final: prev:
-            let
-              dir = readDir abs;
-              files = removeAttrs dir [
-                "default.nix"
-                "overlay.nix"
-              ];
-
-              content = mbindAttrs (
-                name: type:
-                let
-                  child = abs + "/${name}";
-                in
-                if isHidden name then
-                  [ ]
-                else if isDir type then
-                  [ (nameValuePair name (recurse final child)) ]
-                else if isNix name then
-                  [ (nameValuePair (stemOfNix name) (final.callPackage child)) ]
-                else
-                  [ ]
-              ) files;
-
-              load = loadIn dir abs;
-              defaultNix = load "default.nix" (p: import p { pkgs = final.legacyPackages; });
-              overlayNix = load "overlay.nix" (p: import p final.legacyPackages prev.legacyPackages);
-            in
-            defaultNix // content // overlayNix
-          );
-    in
-    recurse;
 }

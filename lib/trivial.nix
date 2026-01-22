@@ -1,10 +1,15 @@
 final: prev:
 let
-  inherit (builtins) isFunction length elemAt;
+  inherit (builtins)
+    isFunction
+    length
+    elemAt
+    functionArgs
+    ;
 
   inherit (prev.trivial) flip pipe;
 in
-{
+rec {
   snd = x: y: y;
   apply = f: x: f x;
   eq = x: y: x == y;
@@ -18,17 +23,17 @@ in
   invoke = fn: if isFunction fn then fn else import fn;
 
   fix =
-    f:
+    rattrs:
     let
-      x = f x;
+      x = rattrs x;
     in
     x;
 
   fix' =
-    f:
+    rattrs:
     let
-      x = f x // {
-        __unfix__ = f;
+      x = rattrs x // {
+        __unfix__ = rattrs;
       };
     in
     x;
@@ -51,4 +56,11 @@ in
       firstStage = linkStage initialStage 0;
     in
     firstStage;
+
+  annotateArgs = args: f: {
+    __functor = self: f;
+    __functionArgs = args;
+  };
+
+  mirrorArgsFrom = compose annotateArgs functionArgs;
 }

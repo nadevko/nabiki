@@ -19,7 +19,6 @@ let
     findFirst
     ;
   inherit (prev.strings) levenshteinAtMost levenshtein;
-  inherit (prev.customisation) makeOverridable;
 
   inherit (final.mixins)
     mix
@@ -28,6 +27,7 @@ let
     mixr
     mixl
     ;
+  inherit (final.customisation) makeOverridable;
   inherit (final.attrsets) collapseScope;
   inherit (final.trivial) invoke;
   inherit (final.debug) attrPos;
@@ -84,23 +84,26 @@ rec {
   callPackageWith = context: fn: makeOverridable (callWith context (invoke fn));
 
   makeScopeWith =
-    pkgs: f:
+    context: rattrs:
     let
-      self = f scope;
-      legacyPackages = pkgs // self;
+      self = rattrs scope;
+      legacyPackages = context // self;
       scope = self // {
         inherit self legacyPackages;
         packages = collapseScope scope;
-        __unfix__ = f;
+        __unfix__ = rattrs;
 
-        fuse = g: makeScopeWith pkgs (mix g f);
-        fold = gs: makeScopeWith pkgs (mix (foldMix gs) f);
+        fuse = g: makeScopeWith context (mix g rattrs);
+        fold = gs: makeScopeWith context (mix (foldMix gs) rattrs);
         rebase = g: scope.makeScope (final: g final legacyPackages);
         makeScope = makeScopeWith legacyPackages;
 
         call = callWith legacyPackages;
         callPackage = fn: makeOverridable (scope.call (invoke fn));
-        callPinned = fn: scope.call (invoke fn) { };
+        callPinned =
+          pin: fn: attrs:
+          scope.callPackage fn (scope.call (invoke pin) { } // attrs);
+        callScope = fn: attrs: scope.makeScope (scope.call (invoke fn) attrs);
       };
     in
     scope;
