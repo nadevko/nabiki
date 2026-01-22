@@ -6,8 +6,7 @@ let
   inherit (prev.trivial) const;
 
   inherit (final.attrsets) bindAttrs mbindAttrs;
-  inherit (final.customisation) makeScopeWith;
-  inherit (final.path)
+  inherit (final.paths)
     stemOfNix
     stemOf
     isVisibleNix
@@ -113,7 +112,7 @@ rec {
     config // { path = abs; }
   );
 
-  readLibOverlay =
+  libMixin =
     root: final: prev:
     mbindDir (
       abs: name: type:
@@ -130,7 +129,7 @@ rec {
         [ ]
     ) root;
 
-  readShards =
+  listShards =
     {
       shardDepth ? 0,
       recurseInto ? name: type: true,
@@ -150,58 +149,53 @@ rec {
     in
     mbindDir (enterShards 0) root;
 
-  readScope =
-    root: pkgs:
+  importScope =
     let
-      load =
-        dir: abs: f: name:
+      loadIn =
+        dir: abs: name: f:
         if dir ? ${name} then f (abs + "/${name}") else { };
-
-      mapSubDir =
-        self: p:
-        mbindAttrs (
-          name: type:
-          let
-            abs = p + "/${name}";
-          in
-          if isHidden name then
-            [ ]
-          else if isDir type then
-            [ (nameValuePair name (recurse self abs)) ]
-          else if isNix name then
-            [ (nameValuePair (stemOfNix name) (self.callPackage abs { })) ]
-          else
-            [ ]
-        );
 
       recurse =
         scope: abs:
         let
-          packagePath = abs + "/package.nix";
+          package = abs + "/package.nix";
         in
-        if pathExists packagePath then
+        if pathExists package then
           let
-            pinsPath = abs + "/pins.nix";
+            pins = abs + "/pins.nix";
           in
-          scope.callPackage packagePath (if pathExists pinsPath then scope.callPin pinsPath else { })
+          if pathExists pins then scope.callScopeWith pins package else scope.callScope package
         else
-          scope.makeScope (
-            self:
+          scope.fuse (
+            final: prev:
             let
               dir = readDir abs;
-
               files = removeAttrs dir [
                 "default.nix"
                 "overlay.nix"
               ];
-              perFile = mapSubDir self abs files;
 
-              load' = load dir abs;
-              defaultNix = load' (p: import p { pkgs = self.legacyPackages; }) "/default.nix";
-              overlayNix = load' (p: import p self.legacyPackages pkgs) "/overlay.nix";
+              content = mbindAttrs (
+                name: type:
+                let
+                  child = abs + "/${name}";
+                in
+                if isHidden name then
+                  [ ]
+                else if isDir type then
+                  [ (nameValuePair name (recurse final child)) ]
+                else if isNix name then
+                  [ (nameValuePair (stemOfNix name) (final.callPackage child)) ]
+                else
+                  [ ]
+              ) files;
+
+              load = loadIn dir abs;
+              defaultNix = load "default.nix" (p: import p { pkgs = final.legacyPackages; });
+              overlayNix = load "overlay.nix" (p: import p final.legacyPackages prev.legacyPackages);
             in
-            defaultNix // perFile // overlayNix
+            defaultNix // content // overlayNix
           );
     in
-    recurse (makeScopeWith pkgs (self: { })) root;
+    recurse;
 }

@@ -1,75 +1,117 @@
 final: prev: {
   attrsets = import ../lib/attrsets.nix final prev;
-  customisation = import ../lib/customisation.nix final prev;
   debug = import ../lib/debug.nix final prev;
   filesystem = import ../lib/filesystem.nix final prev;
-  fixedPoints = import ../lib/fixedPoints.nix final prev;
   flakes = import ../lib/flakes.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
-  path = import ../lib/path.nix final prev;
+  mixins = import ../lib/mixins.nix final prev;
+  paths = import ../lib/paths.nix final prev;
+  scopes = import ../lib/scopes.nix final prev;
   trivial = import ../lib/trivial.nix final prev;
 
   inherit (final.attrsets)
+    singletonAttrs
     bindAttrs
     mbindAttrs
-    singletonAttrs
     mapAttrsIntersection
     partitionAttrs
     pointwisel
     pointwiser
     transposeAttrs
+    genAttrsBy
     genTransposedAttrsBy
     foldPathWith
+    foldPath
+    genLibAliasesWithoutPred
+    genLibAliasesWithout
+    genLibAliases
+    collapseScopeSep
+    collapseScope
     ;
-  inherit (final.customisation)
-    getOverride
-    shouldRecurseForDerivations
-    callPackageWith
-    callScopeWith
-    makeScope
+
+  inherit (final.debug) attrPos' attrPos;
+
+  inherit (final.filesystem)
+    bindDir
+    mbindDir
+    collectFiles
+    collectNixFiles
+    collapseDir
+    collapseNixDirSep
+    collapseNixDir
+    readDirWithConfig
+    readNixosConfigurations
+    readTemplates
+    libMixin
+    listShards
+    importScope
     ;
-  inherit (final.debug) attrPos;
-  inherit (final.filesystem) collectFiles listNixFiles;
-  inherit (final.fixedPoints)
-    rebase
-    rebase'
-    extendWith
-    composeOverlaysWith
-    composeOverlayListWith
-    makeExtensibleWith
-    safeExtendWith
-    extends
-    extendOverlays
-    extendOverlayList
-    makeExtensibleAs
-    makeExtensible
-    safeExtendAs
-    safeExtend
-    patches
-    patchOverlays
-    patchOverlayList
-    makePatchableAs
-    makePatchable
-    safePatchAs
-    safePatch
-    augments
-    augmentOverlays
-    augmentOverlayList
-    makeAugmentableAs
-    makeAugmentable
-    safeAugmentAs
-    safeAugment
-    wrapLibOverlay
-    wrapLibOverlay'
+
+  inherit (final.flakes) perRootIn perSystemIn perSystem;
+
+  inherit (final.lists) splitAt intersectStrings subtractStrings;
+
+  inherit (final.mixins)
+    makeMixMerge
+    makeMixRebaseWith
+    makeMixRebase
+    makeMixRebase'
+    makeMixFuse
+    makeMixFold
+    rebaseSelf
+    rebaseSelf'
+    mix
+    rebaseMix
+    rebaseMix'
+    fuseMix
+    foldMix
+    mixr
+    rebaseMixr
+    rebaseMixr'
+    fuseMixr
+    foldMixr
+    mixl
+    rebaseMixl
+    rebaseMixl'
+    fuseMixl
+    foldMixl
     ;
-  inherit (final.lists) splitAt subtractLists subtractStrings;
-  inherit (final.path)
+
+  inherit (final.paths)
     stemOf
     stemOfNix
     isDir
     isNix
     isHidden
+    isVisible
+    isVisibleNix
+    isVisibleDir
     ;
-  inherit (final.trivial) compose fpipe;
+
+  inherit (final.scopes)
+    initLibAs
+    initLib
+    mergeLibWith
+    forkLibFrom
+    forkLibAs
+    forkLib
+    augmentLibFrom
+    augmentLibAs
+    augmentLib
+    callWith
+    makeScopeWith
+    ;
+
+  inherit (final.trivial)
+    snd
+    apply
+    eq
+    compose
+    fpipe
+    invoke
+    fix
+    fix'
+    dfold
+    ;
 }

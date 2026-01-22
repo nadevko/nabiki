@@ -10,7 +10,6 @@ let
     concatStringsSep
     concatMap
     ;
-  inherit (prev.customisation) makeOverridable;
   inherit (prev.trivial) pipe;
   inherit (prev.lists)
     take
@@ -20,18 +19,40 @@ let
     findFirst
     ;
   inherit (prev.strings) levenshteinAtMost levenshtein;
+  inherit (prev.customisation) makeOverridable;
 
-  inherit (final.fixedPoints) extends foldExtensions;
+  inherit (final.mixins)
+    mix
+    foldMix
+    fix
+    mixr
+    mixl
+    ;
   inherit (final.attrsets) collapseScope;
   inherit (final.trivial) invoke;
   inherit (final.debug) attrPos;
 in
 rec {
+  initLibAs = name: fn: final: prev: { ${name} = fix (final: invoke fn final { }); };
+  initLib = initLibAs "lib";
+
+  mergeLibWith = merger: base: name: fn: final: prev: {
+    ${name} = fix (merger (invoke fn) (_: prev.${base}));
+  };
+
+  forkLibFrom = mergeLibWith mixr;
+  forkLibAs = forkLibFrom "lib";
+  forkLib = forkLibAs "lib";
+
+  augmentLibFrom = mergeLibWith mixl;
+  augmentLibAs = augmentLibFrom "lib";
+  augmentLib = augmentLibAs "lib";
+
   callWith =
-    autoAttrs: callee: attrs:
+    context: callee: attrs:
     let
       calleeArgs = functionArgs callee;
-      callAttrs = intersectAttrs calleeArgs autoAttrs // attrs;
+      callAttrs = intersectAttrs calleeArgs context // attrs;
       missing = findFirst (n: !(callAttrs ? ${n} || calleeArgs.${n})) null (attrNames calleeArgs);
     in
     if missing == null then
@@ -40,7 +61,7 @@ rec {
       let
         suggestions =
           pipe
-            [ attrs autoAttrs ]
+            [ attrs context ]
             [
               (concatMap attrNames)
               (filter (levenshteinAtMost 2 missing))
@@ -60,7 +81,7 @@ rec {
       in
       abort "kasumi.lib.customisation.call: Function called without required argument '${missing}' at ${pos}${didYouMean}";
 
-  callPackageWith = autoAttrs: fn: makeOverridable (callWith autoAttrs (invoke fn));
+  callPackageWith = context: fn: makeOverridable (callWith context (invoke fn));
 
   makeScopeWith =
     pkgs: f:
@@ -72,14 +93,14 @@ rec {
         packages = collapseScope scope;
         __unfix__ = f;
 
-        fuseScope = g: makeScopeWith pkgs (extends g f);
-        foldScope = gs: makeScopeWith pkgs (extends (foldExtensions gs) f);
-        rebaseScope = g: scope.makeScope (final: g final legacyPackages);
+        fuse = g: makeScopeWith pkgs (mix g f);
+        fold = gs: makeScopeWith pkgs (mix (foldMix gs) f);
+        rebase = g: scope.makeScope (final: g final legacyPackages);
         makeScope = makeScopeWith legacyPackages;
 
         call = callWith legacyPackages;
         callPackage = fn: makeOverridable (scope.call (invoke fn));
-        callPin = fn: scope.call (invoke fn) { };
+        callPinned = fn: scope.call (invoke fn) { };
       };
     in
     scope;
