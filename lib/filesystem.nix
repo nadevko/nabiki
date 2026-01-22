@@ -6,6 +6,7 @@ let
   inherit (prev.trivial) const;
 
   inherit (final.attrsets) bindAttrs mbindAttrs;
+  inherit (final.customisation) makeScopeWith;
   inherit (final.path)
     stemOfNix
     stemOf
@@ -37,12 +38,12 @@ rec {
     in
     recurse;
 
-  collectNixes = collectFiles {
+  collectNixFiles = collectFiles {
     recurseInto = _: isVisibleDir;
     include = _: isVisibleNix;
   };
 
-  flattenDir =
+  collapseDir =
     {
       recurseInto ? name: type: isDir type,
       include ? name: type: !isDir type,
@@ -69,9 +70,9 @@ rec {
     in
     mbindDir (makeRecurse toRootPrefix toRootName);
 
-  flattenNixesSep =
+  collapseNixDirSep =
     sep:
-    flattenDir {
+    collapseDir {
       include = name: _: isVisibleNix name;
       recurseInto = isVisibleDir;
       toRootPrefix = const;
@@ -84,10 +85,10 @@ rec {
         "${prefix}${sep}${stemOfNix name}";
     };
 
-  flattenNixes = flattenNixesSep "-";
+  collapseNixDir = collapseNixDirSep "-";
 
-  configureDir =
-    pred: getConfig: root:
+  readDirWithConfig =
+    pred: root:
     let
       dir = readDir root;
     in
@@ -95,20 +96,24 @@ rec {
       name: type:
       let
         abs = root + "/${name}";
-        config = getConfig name (if dir ? ${name + ".nix"} then import (abs + ".nix") else { });
+        config = if dir ? ${name + ".nix"} then import (abs + ".nix") else { };
       in
-      if !isDir type || isHidden name then [ ] else [ (nameValuePair name (pred abs config)) ]
+      if !isDir type || isHidden name then [ ] else [ (nameValuePair name (pred abs name config)) ]
     ) dir;
 
   readNixosConfigurations =
     nixosSystem:
-    configureDir (
-      abs: config: nixosSystem (config // { modules = (collectNixes abs) ++ (config.modules or [ ]); })
+    readDirWithConfig (
+      abs: _: config:
+      nixosSystem (config // { modules = (collectNixFiles abs) ++ (config.modules or [ ]); })
     );
 
-  readTemplates = configureDir (abs: config: config // { path = abs; });
+  readTemplates = readDirWithConfig (
+    abs: _: config:
+    config // { path = abs; }
+  );
 
-  importLibOverlay =
+  readLibOverlay =
     root: final: prev:
     mbindDir (
       abs: name: type:
@@ -144,4 +149,59 @@ rec {
           [ ];
     in
     mbindDir (enterShards 0) root;
+
+  readScope =
+    root: pkgs:
+    let
+      load =
+        dir: abs: f: name:
+        if dir ? ${name} then f (abs + "/${name}") else { };
+
+      mapSubDir =
+        self: p:
+        mbindAttrs (
+          name: type:
+          let
+            abs = p + "/${name}";
+          in
+          if isHidden name then
+            [ ]
+          else if isDir type then
+            [ (nameValuePair name (recurse self abs)) ]
+          else if isNix name then
+            [ (nameValuePair (stemOfNix name) (self.callPackage abs { })) ]
+          else
+            [ ]
+        );
+
+      recurse =
+        scope: abs:
+        let
+          packagePath = abs + "/package.nix";
+        in
+        if pathExists packagePath then
+          let
+            pinsPath = abs + "/pins.nix";
+          in
+          scope.callPackage packagePath (if pathExists pinsPath then scope.callPin pinsPath else { })
+        else
+          scope.makeScope (
+            self:
+            let
+              dir = readDir abs;
+
+              files = removeAttrs dir [
+                "default.nix"
+                "overlay.nix"
+              ];
+              perFile = mapSubDir self abs files;
+
+              load' = load dir abs;
+              defaultNix = load' (p: import p { pkgs = self.legacyPackages; }) "/default.nix";
+              overlayNix = load' (p: import p self.legacyPackages pkgs) "/overlay.nix";
+            in
+            defaultNix // perFile // overlayNix
+          );
+    in
+    recurse (makeScopeWith pkgs (self: { })) root;
 }

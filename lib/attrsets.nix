@@ -13,8 +13,14 @@ let
     elem
     ;
 
-  inherit (prev.attrsets) nameValuePair genAttrs mapAttrsToList;
+  inherit (prev.attrsets)
+    nameValuePair
+    genAttrs
+    mapAttrsToList
+    isDerivation
+    ;
   inherit (prev.strings) hasPrefix;
+  inherit (prev.trivial) id;
 
   inherit (final.trivial) compose snd;
 in
@@ -65,17 +71,14 @@ rec {
     let
       recurse =
         deepest: nodesPath: set:
-        if !isAttrs set then
+        if nodesPath == [ ] || !isAttrs set then
           deepest
         else
           let
             nextDeepest = if set ? ${pattern} then pred deepest set.${pattern} else deepest;
             nextSet = set.${head nodesPath} or null;
           in
-          if nodesPath == [ ] || nextSet == null then
-            nextDeepest
-          else
-            recurse nextDeepest (tail nodesPath) nextSet;
+          if nextSet == null then nextDeepest else recurse nextDeepest (tail nodesPath) nextSet;
     in
     recurse default;
 
@@ -109,4 +112,22 @@ rec {
     "features"
     "teams"
   ];
+
+  collapseScopeSep =
+    sep: scope:
+    let
+      makeRecurse =
+        concat: name: value:
+        if isDerivation value then
+          [ (nameValuePair (concat name) value) ]
+        else if isAttrs value && value ? entries then
+          recurse (concat name) value.entries
+        else
+          [ ];
+
+      recurse = prefix: bindAttrs (makeRecurse (n: "${prefix}${sep}${n}"));
+    in
+    mbindAttrs (makeRecurse id) (scope.entries or scope);
+
+  collapseScope = collapseScopeSep "-";
 }

@@ -1,6 +1,6 @@
 final: prev:
 let
-  inherit (builtins) length elemAt;
+  inherit (builtins) length elemAt isFunction;
 
   inherit (prev.fixedPoints) fix fix';
   inherit (prev.lists) foldr;
@@ -10,6 +10,17 @@ let
   inherit (final.trivial) invoke;
 in
 rec {
+  toMixin =
+    f:
+    if isFunction f then
+      final: prev:
+      let
+        self = f final;
+      in
+      if isFunction self then self prev else self
+    else
+      final: prev: f;
+
   rebase = g: prev: fix (self: invoke g self prev);
   rebase' = g: prev: fix' (self: invoke g self prev);
 

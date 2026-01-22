@@ -22,6 +22,7 @@ let
   inherit (prev.strings) levenshteinAtMost levenshtein;
 
   inherit (final.fixedPoints) extends foldExtensions;
+  inherit (final.attrsets) collapseScope;
   inherit (final.trivial) invoke;
   inherit (final.debug) attrPos;
 in
@@ -64,10 +65,11 @@ rec {
   makeScopeWith =
     pkgs: f:
     let
-      packages = f scope;
-      legacyPackages = pkgs // packages;
-      scope = packages // {
-        inherit packages legacyPackages;
+      self = f scope;
+      legacyPackages = pkgs // self;
+      scope = self // {
+        inherit self legacyPackages;
+        packages = collapseScope scope;
         __unfix__ = f;
 
         fuseScope = g: makeScopeWith pkgs (extends g f);
@@ -77,8 +79,7 @@ rec {
 
         call = callWith legacyPackages;
         callPackage = fn: makeOverridable (scope.call (invoke fn));
-        callPinned = fn: pin: scope.callPackage fn (scope.call (invoke pin));
-        callScope = fn: scope.rebaseScope (invoke fn);
+        callPin = fn: scope.call (invoke fn) { };
       };
     in
     scope;
