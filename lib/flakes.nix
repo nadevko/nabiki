@@ -1,26 +1,33 @@
 final: prev:
 let
-  inherit (builtins) attrNames isFunction;
+  inherit (builtins) attrNames isFunction isAttrs;
 
-  inherit (prev.trivial) id;
-
-  inherit (final.attrsets) genTransposedAttrsBy;
+  inherit (final.attrsets) genTransposedAttrs genTransposedAttrsBy;
+  inherit (final.scopes) makeScopeWith;
 in
 rec {
-  perRootIn = genTransposedAttrsBy id;
+  pkgsFrom =
+    flake: config: system:
+    if config == { } then
+      flake.legacyPackages.${system}
+    else
+      import flake ({ inherit system; } // (if isFunction config then config system else config));
 
-  perSystemIn =
+  perLegacyIn =
     systems: flake: config:
-    let
-      isDynamic = isFunction config;
-    in
+    genTransposedAttrsBy (pkgsFrom flake config) systems;
+
+  perScopeIn =
+    systems: flake: config: mixins:
     genTransposedAttrsBy (
-      system:
-      if config == { } then
-        flake.legacyPackages.${system}
-      else
-        import flake ((if isDynamic then config system else config) // { inherit system; })
+      system: (makeScopeWith (pkgsFrom flake config system) (_: { })).fold mixins
     ) systems;
 
-  perSystem = flake: perSystemIn (attrNames flake.legacyPackages) flake;
+  forSystems =
+    fn: flake:
+    fn (if isAttrs (flake.legacyPackages or null) then attrNames flake.legacyPackages else flake) flake;
+
+  perSystem = forSystems genTransposedAttrs;
+  perLegacy = forSystems perLegacyIn;
+  perScope = forSystems perScopeIn;
 }

@@ -19,7 +19,6 @@ let
     findFirst
     ;
   inherit (prev.strings) levenshteinAtMost levenshtein;
-  inherit (prev.customisation) makeOverridable;
 
   inherit (final.mixins)
     mix
@@ -28,7 +27,6 @@ let
     mixr
     mixl
     ;
-  inherit (final.attrsets) collapseScopeWith;
   inherit (final.trivial) invoke;
   inherit (final.debug) attrPos;
 in
@@ -85,16 +83,10 @@ rec {
     base: rattrs:
     let
       context = base // self;
-      self = rattrs scope;
+      self = rattrs context;
       scope = self // {
         inherit self context;
-        collapse = config: collapseScopeWith config scope;
         __unfix__ = rattrs;
-
-        pkgs = context;
-        legacyPackages = context;
-        packages = scope.collapse { };
-        callPackage = scope.callOverridable;
 
         fuse = g: makeScopeWith context (mix g rattrs);
         fold = gs: makeScopeWith context (mix (foldMix gs) rattrs);
@@ -102,11 +94,6 @@ rec {
         makeScope = makeScopeWith context;
 
         call = callWith context;
-        callOverridable = fn: makeOverridable (scope.call (invoke fn));
-        callPinned =
-          pin: fn: attrs:
-          scope.callOverridable fn (scope.call (invoke pin) { } // attrs);
-        callScope = fn: attrs: scope.makeScope (scope.call (invoke fn) attrs);
       };
     in
     scope;

@@ -1,11 +1,6 @@
 final: prev:
 let
-  inherit (builtins)
-    readDir
-    pathExists
-    listToAttrs
-    mapAttrs
-    ;
+  inherit (builtins) readDir pathExists mapAttrs;
 
   inherit (prev.attrsets) nameValuePair;
   inherit (prev.trivial) const;
@@ -22,10 +17,15 @@ let
     ;
 in
 rec {
-  bindDir = pred: root: bindAttrs (name: pred (root + "/${name}") name) (readDir root);
-  mbindDir = pred: root: listToAttrs (bindDir pred root);
+  makeReadDirWrapper =
+    fn: fn: root:
+    fn (name: fn (root + "/${name}") name) (readDir root);
 
-  mergeMapDir = pred: root: mergeMapAttrs (name: pred (root + "/${name}") name) (readDir root);
+  bindDir = makeReadDirWrapper bindAttrs;
+  mbindDir = makeReadDirWrapper mbindAttrs;
+
+  mapDir = makeReadDirWrapper mapAttrs;
+  mergeMapDir = makeReadDirWrapper mergeMapAttrs;
 
   collectFiles =
     {
@@ -79,7 +79,7 @@ rec {
   collapseNixDirSep =
     sep:
     collapseDir {
-      include = name: _: isVisibleNix name;
+      include = isVisibleNix;
       recurseInto = isVisibleDir;
       toRootPrefix = const;
       toRootName = name: _: stemOfNix name;
@@ -88,13 +88,13 @@ rec {
         "${prefix}${sep}${name}";
       concatName =
         prefix: name: _:
-        "${prefix}${sep}${stemOfNix name}";
+        if name == "default.nix" then prefix else "${prefix}${sep}${stemOfNix name}";
     };
 
   collapseNixDir = collapseNixDirSep "-";
 
-  readDirWithConfig =
-    pred: root:
+  readDirWithManifest =
+    fn: root:
     let
       dir = readDir root;
     in
@@ -104,20 +104,22 @@ rec {
         abs = root + "/${name}";
         config = if dir ? ${name + ".nix"} then import (abs + ".nix") else { };
       in
-      if !isDir type || isHidden name then [ ] else [ (nameValuePair name (pred abs name config)) ]
+      if !isDir type || isHidden name then [ ] else [ (nameValuePair name (fn abs name config)) ]
     ) dir;
 
-  readNixosConfigurations =
-    nixosSystem:
-    readDirWithConfig (
-      abs: _: config:
-      nixosSystem (config // { modules = (collectNixFiles abs) ++ (config.modules or [ ]); })
+  readConfigurations =
+    build:
+    readDirWithManifest (
+      abs: name: config:
+      build name (config // { modules = (collectNixFiles abs) ++ (config.modules or [ ]); })
     );
 
-  readTemplates = readDirWithConfig (
-    abs: _: config:
-    config // { path = abs; }
-  );
+  readTemplates =
+    build:
+    readDirWithManifest (
+      abs: name: config:
+      build name (config // { path = abs; })
+    );
 
   readLibMixin =
     root: final: prev:
@@ -174,16 +176,13 @@ rec {
               (if pathExists pins then final.callPinned pins else final.callOverridable) pkg { }
             else
               let
-                overlay = abs + "/overlay.nix";
-                scope = abs + "/scope.nix";
+                mixin = abs + "/mixin.nix";
                 default = abs + "/default.nix";
               in
-              if pathExists overlay then
-                import overlay final prev
-              else if pathExists scope then
-                final.callScope scope { }
+              if pathExists mixin then
+                import mixin final prev
               else if pathExists default then
-                final.call default { }
+                final.call (import default) { }
               else
                 (final.makeScope (_: { })).fuse (readRecursivePackagesMixin abs)
           ))

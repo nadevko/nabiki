@@ -14,6 +14,7 @@ final: prev: {
     singletonAttrs
     bindAttrs
     mbindAttrs
+    mergeMapAttrs
     intersectWith
     partitionAttrs
     pointwisel
@@ -21,36 +22,50 @@ final: prev: {
     transposeAttrs
     genAttrsBy
     genTransposedAttrsBy
+    genTransposedAttrs
     foldPathWith
     foldPath
     genLibAliasesPred
     genLibAliasesWithout
     genLibAliases
+    collapseScopeWith
     collapseScopeSep
     collapseScope
     ;
 
-  inherit (final.scopes) makeOverridable makeDerivationExtensible;
-
   inherit (final.debug) attrPos' attrPos;
 
   inherit (final.filesystem)
+    makeReadDirWrapper
     bindDir
     mbindDir
+    mapDir
+    mergeMapDir
     collectFiles
     collectNixFiles
     collapseDir
     collapseNixDirSep
     collapseNixDir
-    readDirWithConfig
-    readNixosConfigurations
+    readDirWithManifest
+    readConfigurations
     readTemplates
-    libMixin
-    listShards
-    importScope
+    readLibMixin
+    readShards
+    readPackagesMixin
+    readPackagesWithPinsMixin
+    readRecursivePackagesMixin
     ;
 
-  inherit (final.flakes) perRootIn perSystemIn perSystem;
+  inherit (final.flakes)
+    pkgsFrom
+    perSystemIn
+    perLegacyIn
+    perScopeIn
+    forSystems
+    perSystem
+    perLegacy
+    perScope
+    ;
 
   inherit (final.lists) splitAt intersectStrings subtractStrings;
 

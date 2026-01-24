@@ -2,6 +2,6 @@
   pkgs ? import <nixpkgs> { },
 }:
 pkgs.appendOverlays [
-  (import ./overlays/augment.nix)
-  (import ./overlay.nix)
+  (import ./mixins/augment.nix)
+  (import ./mixin.nix)
 ]

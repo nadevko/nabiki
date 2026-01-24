@@ -28,14 +28,14 @@ in
 rec {
   singletonAttrs = name: value: { ${name} = value; };
 
-  bindAttrs = pred: set: concatMap (name: pred name set.${name}) (attrNames set);
-  mbindAttrs = pred: set: listToAttrs (bindAttrs pred set);
+  bindAttrs = fn: set: concatMap (name: fn name set.${name}) (attrNames set);
+  mbindAttrs = fn: set: listToAttrs (bindAttrs fn set);
 
-  mergeMapAttrs = pred: set: mergeAttrsList (map (name: pred name set.${name}) (attrNames set));
+  mergeMapAttrs = fn: set: mergeAttrsList (map (name: fn name set.${name}) (attrNames set));
 
   intersectWith =
-    pred: left: right:
-    mapAttrs (name: pred name left.${name}) (intersectAttrs left right);
+    fn: left: right:
+    mapAttrs (name: fn name left.${name}) (intersectAttrs left right);
 
   partitionAttrs = pred: set: {
     right = bindAttrs (
@@ -70,8 +70,10 @@ rec {
     adapter: roots: generator:
     transposeAttrs (genAttrsBy adapter roots generator);
 
+  genTransposedAttrs = genTransposedAttrsBy id;
+
   foldPathWith =
-    pred: default: pattern:
+    fn: default: pattern:
     let
       recurse =
         deepest: nodesPath: set:
@@ -79,7 +81,7 @@ rec {
           deepest
         else
           let
-            nextDeepest = if set ? ${pattern} then pred deepest set.${pattern} else deepest;
+            nextDeepest = if set ? ${pattern} then fn deepest set.${pattern} else deepest;
             nextSet = set.${head nodesPath} or null;
           in
           if nextSet == null then nextDeepest else recurse nextDeepest (tail nodesPath) nextSet;
@@ -119,7 +121,7 @@ rec {
 
   collapseScopeWith =
     {
-      include,
+      include ? isDerivation,
       sep ? "-",
     }:
     scope:
@@ -128,8 +130,8 @@ rec {
         concat: name: value:
         if include value then
           [ (nameValuePair (concat name) value) ]
-        else if isAttrs value && value ? self then
-          recurse (concat name) value.self
+        else if isAttrs value && value.recurseForDerivations or false then
+          recurse (concat name) (value.self or value)
         else
           [ ];
 
@@ -137,12 +139,6 @@ rec {
     in
     mbindAttrs (makeRecurse id) (scope.self or scope);
 
-  collapseScopeSep =
-    sep:
-    collapseScopeWith {
-      include = isDerivation;
-      inherit sep;
-    };
-
+  collapseScopeSep = sep: collapseScopeWith { inherit sep; };
   collapseScope = collapseScopeSep "-";
 }
