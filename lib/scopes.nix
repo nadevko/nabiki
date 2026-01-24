@@ -19,6 +19,7 @@ let
     findFirst
     ;
   inherit (prev.strings) levenshteinAtMost levenshtein;
+  inherit (prev.customisation) makeOverridable;
 
   inherit (final.mixins)
     mix
@@ -27,8 +28,7 @@ let
     mixr
     mixl
     ;
-  inherit (final.customisation) makeOverridable;
-  inherit (final.attrsets) collapseScope;
+  inherit (final.attrsets) collapseScopeWith;
   inherit (final.trivial) invoke;
   inherit (final.debug) attrPos;
 in
@@ -81,28 +81,31 @@ rec {
       in
       abort "kasumi.lib.customisation.call: Function called without required argument '${missing}' at ${pos}${didYouMean}";
 
-  callPackageWith = context: fn: makeOverridable (callWith context (invoke fn));
-
   makeScopeWith =
-    context: rattrs:
+    base: rattrs:
     let
+      context = base // self;
       self = rattrs scope;
-      legacyPackages = context // self;
       scope = self // {
-        inherit self legacyPackages;
-        packages = collapseScope scope;
+        inherit self context;
+        collapse = config: collapseScopeWith config scope;
         __unfix__ = rattrs;
+
+        pkgs = context;
+        legacyPackages = context;
+        packages = scope.collapse { };
+        callPackage = scope.callOverridable;
 
         fuse = g: makeScopeWith context (mix g rattrs);
         fold = gs: makeScopeWith context (mix (foldMix gs) rattrs);
-        rebase = g: scope.makeScope (final: g final legacyPackages);
-        makeScope = makeScopeWith legacyPackages;
+        rebase = g: scope.makeScope (final: g final context);
+        makeScope = makeScopeWith context;
 
-        call = callWith legacyPackages;
-        callPackage = fn: makeOverridable (scope.call (invoke fn));
+        call = callWith context;
+        callOverridable = fn: makeOverridable (scope.call (invoke fn));
         callPinned =
           pin: fn: attrs:
-          scope.callPackage fn (scope.call (invoke pin) { } // attrs);
+          scope.callOverridable fn (scope.call (invoke pin) { } // attrs);
         callScope = fn: attrs: scope.makeScope (scope.call (invoke fn) attrs);
       };
     in

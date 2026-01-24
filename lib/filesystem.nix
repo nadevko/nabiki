@@ -1,11 +1,16 @@
 final: prev:
 let
-  inherit (builtins) readDir pathExists;
+  inherit (builtins)
+    readDir
+    pathExists
+    listToAttrs
+    mapAttrs
+    ;
 
   inherit (prev.attrsets) nameValuePair;
   inherit (prev.trivial) const;
 
-  inherit (final.attrsets) bindAttrs mbindAttrs;
+  inherit (final.attrsets) bindAttrs mbindAttrs mergeMapAttrs;
   inherit (final.paths)
     stemOfNix
     stemOf
@@ -18,7 +23,9 @@ let
 in
 rec {
   bindDir = pred: root: bindAttrs (name: pred (root + "/${name}") name) (readDir root);
-  mbindDir = pred: root: mbindAttrs (name: pred (root + "/${name}") name) (readDir root);
+  mbindDir = pred: root: listToAttrs (bindDir pred root);
+
+  mergeMapDir = pred: root: mergeMapAttrs (name: pred (root + "/${name}") name) (readDir root);
 
   collectFiles =
     {
@@ -125,6 +132,62 @@ rec {
         if pathExists default then [ (nameValuePair name (import default final prev)) ] else [ ]
       else if name != "default.nix" && isNix name then
         [ (nameValuePair (stemOfNix name) (import abs final prev)) ]
+      else
+        [ ]
+    ) root;
+
+  readShards = mergeMapDir (
+    abs: _: type:
+    mapAttrs (name: _: abs + "/${name}") (readDir abs)
+  );
+
+  readPackagesMixin =
+    root: final: prev:
+    mapAttrs (_: abs: final.callPackage (abs + "/package.nix") { }) (readShards root);
+
+  readPackagesWithPinsMixin =
+    root: final: prev:
+    mapAttrs (
+      _: abs:
+      let
+        pins = abs + "/pins.nix";
+      in
+      (if pathExists pins then final.callPinned pins else final.callPackage) (abs + "/package.nix") { }
+    ) (readShards root);
+
+  readRecursivePackagesMixin =
+    root: final: prev:
+    mbindDir (
+      abs: name: type:
+      if isHidden name then
+        [ ]
+      else if isNix name then
+        [ (nameValuePair (stemOfNix name) (final.callOverridable abs { })) ]
+      else if isDir type then
+        [
+          (nameValuePair name (
+            let
+              pkg = abs + "/package.nix";
+              pins = abs + "/pins.nix";
+            in
+            if pathExists pkg then
+              (if pathExists pins then final.callPinned pins else final.callOverridable) pkg { }
+            else
+              let
+                overlay = abs + "/overlay.nix";
+                scope = abs + "/scope.nix";
+                default = abs + "/default.nix";
+              in
+              if pathExists overlay then
+                import overlay final prev
+              else if pathExists scope then
+                final.callScope scope { }
+              else if pathExists default then
+                final.call default { }
+              else
+                (final.makeScope (_: { })).fuse (readRecursivePackagesMixin abs)
+          ))
+        ]
       else
         [ ]
     ) root;

@@ -1,6 +1,5 @@
 final: prev: {
   attrsets = import ../lib/attrsets.nix final prev;
-  customisation = import ../lib/customisation.nix final prev;
   debug = import ../lib/debug.nix final prev;
   filesystem = import ../lib/filesystem.nix final prev;
   flakes = import ../lib/flakes.nix final prev;
@@ -15,7 +14,7 @@ final: prev: {
     singletonAttrs
     bindAttrs
     mbindAttrs
-    mapAttrsIntersection
+    intersectWith
     partitionAttrs
     pointwisel
     pointwiser
@@ -24,7 +23,7 @@ final: prev: {
     genTransposedAttrsBy
     foldPathWith
     foldPath
-    genLibAliasesWithoutPred
+    genLibAliasesPred
     genLibAliasesWithout
     genLibAliases
     collapseScopeSep

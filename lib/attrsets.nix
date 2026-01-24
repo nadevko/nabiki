@@ -18,6 +18,7 @@ let
     genAttrs
     mapAttrsToList
     isDerivation
+    mergeAttrsList
     ;
   inherit (prev.strings) hasPrefix;
   inherit (prev.trivial) id;
@@ -26,10 +27,13 @@ let
 in
 rec {
   singletonAttrs = name: value: { ${name} = value; };
+
   bindAttrs = pred: set: concatMap (name: pred name set.${name}) (attrNames set);
   mbindAttrs = pred: set: listToAttrs (bindAttrs pred set);
 
-  mapAttrsIntersection =
+  mergeMapAttrs = pred: set: mergeAttrsList (map (name: pred name set.${name}) (attrNames set));
+
+  intersectWith =
     pred: left: right:
     mapAttrs (name: pred name left.${name}) (intersectAttrs left right);
 
@@ -84,7 +88,7 @@ rec {
 
   foldPath = foldPathWith snd;
 
-  genLibAliasesWithoutPred =
+  genLibAliasesPred =
     exclude:
     mbindAttrs (
       name: value:
@@ -97,7 +101,7 @@ rec {
     );
 
   genLibAliasesWithout =
-    blacklist: genLibAliasesWithoutPred (name: _: elem name blacklist || hasPrefix "_" name);
+    blacklist: genLibAliasesPred (name: _: elem name blacklist || hasPrefix "_" name);
 
   genLibAliases = genLibAliasesWithout [
     "systems"
@@ -113,12 +117,16 @@ rec {
     "teams"
   ];
 
-  collapseScopeSep =
-    sep: scope:
+  collapseScopeWith =
+    {
+      include,
+      sep ? "-",
+    }:
+    scope:
     let
       makeRecurse =
         concat: name: value:
-        if isDerivation value then
+        if include value then
           [ (nameValuePair (concat name) value) ]
         else if isAttrs value && value ? self then
           recurse (concat name) value.self
@@ -128,6 +136,13 @@ rec {
       recurse = prefix: bindAttrs (makeRecurse (n: "${prefix}${sep}${n}"));
     in
     mbindAttrs (makeRecurse id) (scope.self or scope);
+
+  collapseScopeSep =
+    sep:
+    collapseScopeWith {
+      include = isDerivation;
+      inherit sep;
+    };
 
   collapseScope = collapseScopeSep "-";
 }
