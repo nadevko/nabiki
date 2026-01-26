@@ -15,11 +15,25 @@
       overlays = {
         default = import ./overlay.nix;
         lib = import ./overlays/lib.nix;
-        augment = import ./overlays/augment.nix;
+        compat = import ./overlays/compat.nix;
       };
       templates = lib.filesystem.readTemplates ./templates;
-    }
-    // lib.flakes.perScope nixpkgs { } [ self.overlays.default ] (scope: {
-      inherit (scope) packages legacyPackages;
-    });
+      legacyPackages = lib.forSystem (
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [
+            self.overlays.compat
+            self.overlays.default
+          ];
+        }
+      );
+      packages = lib.forSystem (
+        system:
+        nixpkgs.lib.pipe nixpkgs.legacyPackages.${system} [
+          (pkgs: lib.makeScopeWith pkgs (final: self.overlays.default final pkgs))
+          (s: s.self)
+        ]
+      );
+    };
 }

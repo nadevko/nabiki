@@ -1,11 +1,15 @@
 final: prev:
 let
-  inherit (builtins) attrNames isFunction isAttrs;
+  inherit (builtins) isFunction;
 
-  inherit (final.attrsets) genTransposedAttrs genTransposedAttrsBy;
-  inherit (final.scopes) makeScopeWith;
+  inherit (prev.systems) flakeExposed;
+  inherit (prev.attrsets) genAttrs;
+
+  inherit (final.attrsets) genTransposedAttrsBy genTransposedAttrs getAttrsBy;
 in
 rec {
+  flakeSystems = flakeExposed;
+
   pkgsFrom =
     flake: config: system:
     if config == { } then
@@ -13,21 +17,19 @@ rec {
     else
       import flake ({ inherit system; } // (if isFunction config then config system else config));
 
-  perLegacyIn =
+  eachPkgsIn =
     systems: flake: config:
     genTransposedAttrsBy (pkgsFrom flake config) systems;
+  eachPkgs = eachPkgsIn flakeSystems;
 
-  perScopeIn =
-    systems: flake: config: overlays:
-    genTransposedAttrsBy (
-      system: (makeScopeWith (pkgsFrom flake config system) (_: { })).fold overlays
-    ) systems;
+  forPkgsIn =
+    systems: flake: config:
+    getAttrsBy (pkgsFrom flake config) systems;
+  forPkgs = forPkgsIn flakeSystems;
 
-  forSystems =
-    fn: flake:
-    fn (if isAttrs (flake.legacyPackages or null) then attrNames flake.legacyPackages else flake) flake;
+  eachSystemIn = genTransposedAttrs;
+  eachSystem = eachSystemIn flakeSystems;
 
-  perSystem = forSystems genTransposedAttrs;
-  perLegacy = forSystems perLegacyIn;
-  perScope = forSystems perScopeIn;
+  forSystemIn = genAttrs;
+  forSystem = forSystemIn flakeSystems;
 }

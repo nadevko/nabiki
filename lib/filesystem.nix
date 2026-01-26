@@ -15,11 +15,12 @@ let
     isVisibleDir
     isDir
     ;
+  inherit (final.di) callPackageWith callPinnedWith;
 in
 rec {
   makeReadDirWrapper =
-    fn: fn: root:
-    fn (name: fn (root + "/${name}") name) (readDir root);
+    merger: fn: root:
+    merger (name: fn (root + "/${name}") name) (readDir root);
 
   bindDir = makeReadDirWrapper bindAttrs;
   mbindDir = makeReadDirWrapper mbindAttrs;
@@ -108,17 +109,17 @@ rec {
     ) dir;
 
   readConfigurations =
-    build:
+    build: inputs:
     readDirWithManifest (
       abs: name: config:
-      build name (config // { modules = (collectNixFiles abs) ++ (config.modules or [ ]); })
+      build name (config inputs // { modules = (collectNixFiles abs) ++ (config.modules or [ ]); })
     );
 
   readTemplates =
-    build:
+    build: inputs:
     readDirWithManifest (
       abs: name: config:
-      build name (config // { path = abs; })
+      build name (config inputs // { path = abs; })
     );
 
   readLibOverlay =
@@ -145,49 +146,22 @@ rec {
 
   readPackagesOverlay =
     root: final: prev:
-    mapAttrs (_: abs: final.callPackage (abs + "/package.nix") { }) (readShards root);
+    let
+      callPackage = final.callPackage or callPackageWith final;
+    in
+    mapAttrs (_: abs: callPackage (abs + "/package.nix") { }) (readShards root);
 
   readPackagesWithPinsOverlay =
     root: final: prev:
+    let
+      callPackage = final.callPackage or callPackageWith final;
+      callPinned = final.callPinned or callPinnedWith final;
+    in
     mapAttrs (
       _: abs:
       let
         pins = abs + "/pins.nix";
       in
-      (if pathExists pins then final.callPinned pins else final.callPackage) (abs + "/package.nix") { }
+      (if pathExists pins then callPinned pins else callPackage) (abs + "/package.nix") { }
     ) (readShards root);
-
-  readRecursivePackagesOverlay =
-    root: final: prev:
-    mbindDir (
-      abs: name: type:
-      if isHidden name then
-        [ ]
-      else if isNix name then
-        [ (nameValuePair (stemOfNix name) (final.callOverridable abs { })) ]
-      else if isDir type then
-        [
-          (nameValuePair name (
-            let
-              pkg = abs + "/package.nix";
-              pins = abs + "/pins.nix";
-            in
-            if pathExists pkg then
-              (if pathExists pins then final.callPinned pins else final.callOverridable) pkg { }
-            else
-              let
-                overlay = abs + "/overlay.nix";
-                default = abs + "/default.nix";
-              in
-              if pathExists overlay then
-                import overlay final prev
-              else if pathExists default then
-                final.call (import default) { }
-              else
-                (final.makeScope (_: { })).fuse (readRecursivePackagesOverlay abs)
-          ))
-        ]
-      else
-        [ ]
-    ) root;
 }

@@ -1,6 +1,11 @@
 final: prev:
 let
-  inherit (builtins) length filter listToAttrs;
+  inherit (builtins)
+    length
+    filter
+    listToAttrs
+    elemAt
+    ;
 
   inherit (prev.trivial) max min;
   inherit (prev.lists) take drop;
@@ -37,4 +42,23 @@ in
         index = listToAttrs (map (e: nameValuePair (toString e) null) subtrahend);
       in
       filter (e: !index ? "${toString e}") minuend;
+
+  dfold =
+    transform: getInitial: getFinal: itemsList:
+    let
+      totalItems = length itemsList;
+      linkStage =
+        previousStage: index:
+        if index == totalItems then
+          getFinal previousStage
+        else
+          let
+            thisStage = transform previousStage (elemAt itemsList index) nextStage;
+            nextStage = linkStage thisStage (index + 1);
+          in
+          thisStage;
+      initialStage = getInitial firstStage;
+      firstStage = linkStage initialStage 0;
+    in
+    firstStage;
 }

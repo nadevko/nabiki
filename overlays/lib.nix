@@ -1,13 +1,13 @@
 final: prev: {
   attrsets = import ../lib/attrsets.nix final prev;
   debug = import ../lib/debug.nix final prev;
+  di = import ../lib/di.nix final prev;
   filesystem = import ../lib/filesystem.nix final prev;
   flakes = import ../lib/flakes.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
   overlays = import ../lib/overlays.nix final prev;
   paths = import ../lib/paths.nix final prev;
-  scopes = import ../lib/scopes.nix final prev;
   trivial = import ../lib/trivial.nix final prev;
 
   inherit (final.attrsets)
@@ -35,6 +35,17 @@ final: prev: {
 
   inherit (final.debug) attrPos' attrPos;
 
+  inherit (final.di)
+    callWith
+    callPackageBy
+    callPackageWith
+    callPinnedByCallPackage
+    callPinnedBy
+    callPinnedWith
+    makeScopeWith
+    makeCompatScopeWith
+    ;
+
   inherit (final.filesystem)
     makeReadDirWrapper
     bindDir
@@ -53,21 +64,26 @@ final: prev: {
     readShards
     readPackagesOverlay
     readPackagesWithPinsOverlay
-    readRecursivePackagesOverlay
     ;
 
   inherit (final.flakes)
     pkgsFrom
-    perSystemIn
-    perLegacyIn
-    perScopeIn
-    forSystems
-    perSystem
-    perLegacy
-    perScope
+    eachPkgsIn
+    eachPkgs
+    forPkgsIn
+    forPkgs
+    eachSystemIn
+    eachSystem
+    forSystemIn
+    forSystem
     ;
 
-  inherit (final.lists) splitAt intersectStrings subtractStrings;
+  inherit (final.lists)
+    splitAt
+    intersectStrings
+    subtractStrings
+    dfold
+    ;
 
   inherit (final.overlays)
     makeLayMerge
@@ -95,6 +111,13 @@ final: prev: {
     foldLayl
     overlayr
     overlayl
+    nestOverlayWith
+    nestOverlayr
+    nestOverlayl
+    forkLibAs
+    forkLib
+    augmentLibAs
+    augmentLib
     ;
 
   inherit (final.paths)
@@ -108,30 +131,16 @@ final: prev: {
     isVisibleDir
     ;
 
-  inherit (final.scopes)
-    initLibAs
-    initLib
-    mergeLibWith
-    forkLibFrom
-    forkLibAs
-    forkLib
-    augmentLibFrom
-    augmentLibAs
-    augmentLib
-    callWith
-    makeScopeWith
-    ;
-
   inherit (final.trivial)
     snd
     apply
     eq
+    neq
     compose
     fpipe
     invoke
     fix
     fix'
-    dfold
     annotateArgs
     mirrorArgsFrom
     ;

@@ -1,11 +1,6 @@
 final: prev:
 let
-  inherit (builtins)
-    isFunction
-    length
-    elemAt
-    functionArgs
-    ;
+  inherit (builtins) isFunction functionArgs;
 
   inherit (prev.trivial) flip pipe;
 in
@@ -13,6 +8,7 @@ rec {
   snd = x: y: y;
   apply = f: x: f x;
   eq = x: y: x == y;
+  neq = x: y: x != y;
 
   compose =
     f: g: x:
@@ -38,27 +34,8 @@ rec {
     in
     x;
 
-  dfold =
-    transform: getInitial: getFinal: itemsList:
-    let
-      totalItems = length itemsList;
-      linkStage =
-        previousStage: index:
-        if index == totalItems then
-          getFinal previousStage
-        else
-          let
-            thisStage = transform previousStage (elemAt itemsList index) nextStage;
-            nextStage = linkStage thisStage (index + 1);
-          in
-          thisStage;
-      initialStage = getInitial firstStage;
-      firstStage = linkStage initialStage 0;
-    in
-    firstStage;
-
   annotateArgs = args: f: {
-    __functor = self: f;
+    __functor = final: f;
     __functionArgs = args;
   };
 

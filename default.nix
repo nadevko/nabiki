@@ -1,7 +1,8 @@
 {
-  pkgs ? import <nixpkgs> { },
-}:
+  pkgs ? import <nixpkgs> args,
+  ...
+}@args:
 pkgs.appendOverlays [
-  (import ./overlays/augment.nix)
+  (import ./overlays/compat.nix)
   (import ./overlay.nix)
 ]

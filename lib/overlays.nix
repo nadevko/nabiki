@@ -6,7 +6,7 @@ let
   inherit (prev.trivial) flip mergeAttrs;
 
   inherit (final.attrsets) pointwisel pointwiser;
-  inherit (final.trivial) fix fix';
+  inherit (final.trivial) fix fix' invoke;
 in
 rec {
   makeLayMerge =
@@ -74,4 +74,16 @@ rec {
       if isFunction final' then final' prev else final'
     else
       final: prev: g;
+
+  nestOverlayWith = merger: base: name: fn: final: prev: {
+    ${name} = fix (merger (invoke fn) (_: prev.${base} or { }));
+  };
+
+  nestOverlayr = nestOverlayWith layr;
+  nestOverlayl = nestOverlayWith layl;
+
+  forkLibAs = nestOverlayr "lib";
+  forkLib = forkLibAs "lib";
+  augmentLibAs = nestOverlayl "lib";
+  augmentLib = augmentLibAs "lib";
 }
