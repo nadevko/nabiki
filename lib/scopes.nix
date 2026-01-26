@@ -20,12 +20,12 @@ let
     ;
   inherit (prev.strings) levenshteinAtMost levenshtein;
 
-  inherit (final.mixins)
-    mix
-    foldMix
+  inherit (final.overlays)
+    lay
+    foldLay
     fix
-    mixr
-    mixl
+    layr
+    layl
     ;
   inherit (final.trivial) invoke;
   inherit (final.debug) attrPos;
@@ -38,11 +38,11 @@ rec {
     ${name} = fix (merger (invoke fn) (_: prev.${base}));
   };
 
-  forkLibFrom = mergeLibWith mixr;
+  forkLibFrom = mergeLibWith layr;
   forkLibAs = forkLibFrom "lib";
   forkLib = forkLibAs "lib";
 
-  augmentLibFrom = mergeLibWith mixl;
+  augmentLibFrom = mergeLibWith layl;
   augmentLibAs = augmentLibFrom "lib";
   augmentLib = augmentLibAs "lib";
 
@@ -88,8 +88,8 @@ rec {
         inherit self context;
         __unfix__ = rattrs;
 
-        fuse = g: makeScopeWith context (mix g rattrs);
-        fold = gs: makeScopeWith context (mix (foldMix gs) rattrs);
+        fuse = g: makeScopeWith context (lay g rattrs);
+        fold = gs: makeScopeWith context (lay (foldLay gs) rattrs);
         rebase = g: scope.makeScope (final: g final context);
         makeScope = makeScopeWith context;
 

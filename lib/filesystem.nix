@@ -121,7 +121,7 @@ rec {
       build name (config // { path = abs; })
     );
 
-  readLibMixin =
+  readLibOverlay =
     root: final: prev:
     mbindDir (
       abs: name: type:
@@ -143,11 +143,11 @@ rec {
     mapAttrs (name: _: abs + "/${name}") (readDir abs)
   );
 
-  readPackagesMixin =
+  readPackagesOverlay =
     root: final: prev:
     mapAttrs (_: abs: final.callPackage (abs + "/package.nix") { }) (readShards root);
 
-  readPackagesWithPinsMixin =
+  readPackagesWithPinsOverlay =
     root: final: prev:
     mapAttrs (
       _: abs:
@@ -157,7 +157,7 @@ rec {
       (if pathExists pins then final.callPinned pins else final.callPackage) (abs + "/package.nix") { }
     ) (readShards root);
 
-  readRecursivePackagesMixin =
+  readRecursivePackagesOverlay =
     root: final: prev:
     mbindDir (
       abs: name: type:
@@ -176,15 +176,15 @@ rec {
               (if pathExists pins then final.callPinned pins else final.callOverridable) pkg { }
             else
               let
-                mixin = abs + "/mixin.nix";
+                overlay = abs + "/overlay.nix";
                 default = abs + "/default.nix";
               in
-              if pathExists mixin then
-                import mixin final prev
+              if pathExists overlay then
+                import overlay final prev
               else if pathExists default then
                 final.call (import default) { }
               else
-                (final.makeScope (_: { })).fuse (readRecursivePackagesMixin abs)
+                (final.makeScope (_: { })).fuse (readRecursivePackagesOverlay abs)
           ))
         ]
       else

@@ -5,7 +5,7 @@ final: prev: {
   flakes = import ../lib/flakes.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
-  mixins = import ../lib/mixins.nix final prev;
+  overlays = import ../lib/overlays.nix final prev;
   paths = import ../lib/paths.nix final prev;
   scopes = import ../lib/scopes.nix final prev;
   trivial = import ../lib/trivial.nix final prev;
@@ -49,11 +49,11 @@ final: prev: {
     readDirWithManifest
     readConfigurations
     readTemplates
-    readLibMixin
+    readLibOverlay
     readShards
-    readPackagesMixin
-    readPackagesWithPinsMixin
-    readRecursivePackagesMixin
+    readPackagesOverlay
+    readPackagesWithPinsOverlay
+    readRecursivePackagesOverlay
     ;
 
   inherit (final.flakes)
@@ -69,31 +69,32 @@ final: prev: {
 
   inherit (final.lists) splitAt intersectStrings subtractStrings;
 
-  inherit (final.mixins)
-    makeMixMerge
-    makeMixRebaseWith
-    makeMixRebase
-    makeMixRebase'
-    makeMixFuse
-    makeMixFold
+  inherit (final.overlays)
+    makeLayMerge
+    makeLayRebaseWith
+    makeLayRebase
+    makeLayRebase'
+    makeLayFuse
+    makeLayFold
     rebaseSelf
     rebaseSelf'
-    mix
-    rebaseMix
-    rebaseMix'
-    fuseMix
-    foldMix
-    mixr
-    rebaseMixr
-    rebaseMixr'
-    fuseMixr
-    foldMixr
-    mixl
-    rebaseMixl
-    rebaseMixl'
-    fuseMixl
-    foldMixl
-    toMixin
+    lay
+    rebaseLay
+    rebaseLay'
+    fuseLay
+    foldLay
+    layr
+    rebaseLayr
+    rebaseLayr'
+    fuseLayr
+    foldLayr
+    layl
+    rebaseLayl
+    rebaseLayl'
+    fuseLayl
+    foldLayl
+    overlayr
+    overlayl
     ;
 
   inherit (final.paths)

@@ -18,9 +18,9 @@ rec {
     genTransposedAttrsBy (pkgsFrom flake config) systems;
 
   perScopeIn =
-    systems: flake: config: mixins:
+    systems: flake: config: overlays:
     genTransposedAttrsBy (
-      system: (makeScopeWith (pkgsFrom flake config system) (_: { })).fold mixins
+      system: (makeScopeWith (pkgsFrom flake config system) (_: { })).fold overlays
     ) systems;
 
   forSystems =

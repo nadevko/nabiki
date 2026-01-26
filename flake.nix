@@ -1,5 +1,5 @@
 {
-  description = "Nixpkgs Destructurisation Initiative";
+  description = "Nixpkgs Deconstruction Initiative";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
@@ -12,15 +12,14 @@
     in
     {
       inherit lib;
-      overlays = self.mixins;
-      mixins = {
-        default = import ./mixin.nix;
-        lib = import ./mixins/lib.nix;
-        augment = import ./mixins/augment.nix;
+      overlays = {
+        default = import ./overlay.nix;
+        lib = import ./overlays/lib.nix;
+        augment = import ./overlays/augment.nix;
       };
       templates = lib.filesystem.readTemplates ./templates;
     }
-    // lib.flakes.perScope nixpkgs { } [ self.mixins.default ] (scope: {
+    // lib.flakes.perScope nixpkgs { } [ self.overlays.default ] (scope: {
       inherit (scope) packages legacyPackages;
     });
 }
