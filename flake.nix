@@ -31,7 +31,7 @@
       packages = lib.forSystem (
         system:
         nixpkgs.lib.pipe nixpkgs.legacyPackages.${system} [
-          (pkgs: lib.makeScopeWith pkgs (final: self.overlays.default final pkgs))
+          (pkgs: lib.makeScopeWith pkgs (self: self.overlays.default self pkgs))
           (s: s.self)
         ]
       );

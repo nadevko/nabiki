@@ -5,7 +5,7 @@ let
   inherit (prev.systems) flakeExposed;
   inherit (prev.attrsets) genAttrs;
 
-  inherit (final.attrsets) genTransposedAttrsBy genTransposedAttrs getAttrsBy;
+  inherit (final.attrsets) genTransposedAttrsBy genTransposedAttrs genAttrsBy;
 in
 rec {
   flakeSystems = flakeExposed;
@@ -24,12 +24,12 @@ rec {
 
   forPkgsIn =
     systems: flake: config:
-    getAttrsBy (pkgsFrom flake config) systems;
+    genAttrsBy (pkgsFrom flake config) systems;
   forPkgs = forPkgsIn flakeSystems;
 
   eachSystemIn = genTransposedAttrs;
   eachSystem = eachSystemIn flakeSystems;
 
-  forSystemIn = genAttrs;
-  forSystem = forSystemIn flakeSystems;
+  forSystemsIn = genAttrs;
+  forSystems = forSystemsIn flakeSystems;
 }

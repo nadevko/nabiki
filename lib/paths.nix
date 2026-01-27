@@ -8,19 +8,19 @@ let
 in
 rec {
   stemOf =
-    name:
+    n:
     let
-      matches = match ''(.*)\.[^.]+$'' name;
+      matches = match ''(.*)\.[^.]+$'' n;
     in
-    if matches == null then name else head matches;
+    if matches == null then n else head matches;
 
   stemOfNix = removeSuffix ".nix";
 
   isDir = eq "directory";
   isNix = hasSuffix ".nix";
   isHidden = hasPrefix ".";
-  isVisible = name: !isHidden name;
+  isVisible = n: !isHidden n;
 
-  isVisibleNix = name: type: isVisible name && isNix name;
-  isVisibleDir = name: type: isVisible name && isDir type;
+  isVisibleNix = n: type: isVisible n && isNix n;
+  isVisibleDir = n: type: isVisible n && isDir type;
 }

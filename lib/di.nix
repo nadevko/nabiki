@@ -27,14 +27,15 @@ let
 in
 rec {
   callWith =
-    context: callee: overrides:
+    context: f: overrides:
     let
+      callee = invoke f;
       calleeArgs = functionArgs callee;
       callAttrs = intersectAttrs calleeArgs context // overrides;
       missing = findFirst (n: !(callAttrs ? ${n} || calleeArgs.${n})) null (attrNames calleeArgs);
     in
     if missing == null then
-      invoke callee callAttrs
+      callee callAttrs
     else
       let
         suggestions =
@@ -59,14 +60,8 @@ rec {
       in
       abort "kasumi.lib.di.callWith: Function called without required argument '${missing}' at ${pos}${didYouMean}";
 
-  callPackageBy = call: compose makeOverridable call;
+  callPackageBy = call: f: makeOverridable (call (invoke f));
   callPackageWith = compose callPackageBy callWith;
-
-  callPinnedByCallPackage =
-    callPackage: pin: fn: overrides:
-    callPackage fn (callPackage pin { } // overrides);
-  callPinnedBy = compose callPinnedByCallPackage callPackageBy;
-  callPinnedWith = compose callPinnedBy callWith;
 
   makeScopeWith =
     prev: rattrs:
@@ -78,13 +73,16 @@ rec {
         __unfix__ = rattrs;
 
         makeScope = makeScopeWith pkgs;
-        fuse = g: self.makeScope (lay g rattrs);
+        # conflict with pkgs.fuse -_-
+        # I want to rename it: pkgs.fuse   ->  pkgs.libfuse
+        #                      pkgs.fuse3  ->  pkgs.libfuse3
+        # fuse = g: self.makeScope (lay g rattrs);
+        fuze = g: self.makeScope (lay g rattrs);
         fold = gs: self.makeScope (lay (foldLay gs) rattrs);
-        rebase = g: self.makeScope (final: g final pkgs);
+        rebase = g: self.makeScope (self: g self pkgs);
 
         call = callWith pkgs;
         callPackage = callPackageBy self.call;
-        callPinned = callPinnedByCallPackage self.callPackage;
       };
     in
     self;

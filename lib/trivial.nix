@@ -16,26 +16,26 @@ rec {
 
   fpipe = flip pipe;
 
-  invoke = fn: if isFunction fn then fn else import fn;
+  invoke = f: if isFunction f then f else import f;
 
   fix =
     rattrs:
     let
-      x = rattrs x;
+      self = rattrs self;
     in
-    x;
+    self;
 
   fix' =
     rattrs:
     let
-      x = rattrs x // {
+      self = rattrs self // {
         __unfix__ = rattrs;
       };
     in
-    x;
+    self;
 
   annotateArgs = args: f: {
-    __functor = final: f;
+    __functor = self: f;
     __functionArgs = args;
   };
 

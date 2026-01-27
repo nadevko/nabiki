@@ -13,14 +13,14 @@ let
 in
 {
   splitAt =
-    n: list:
+    x: list:
     let
       len = length list;
-      n' = max 0 (min len (if n < 0 then len + n else n));
+      x' = max 0 (min len (if x < 0 then len + x else x));
     in
     {
-      left = take n' list;
-      right = drop n' list;
+      left = take x' list;
+      right = drop x' list;
     };
 
   intersectStrings =

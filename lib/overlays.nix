@@ -10,25 +10,25 @@ let
 in
 rec {
   makeLayMerge =
-    merger: g: rattrs: final:
+    merge: g: rattrs: final:
     let
       prev = rattrs final;
     in
-    merger prev (g final prev);
+    merge prev (g final prev);
 
   makeLayRebaseWith =
-    fix: merger: g: prev:
-    fix (final: g (merger prev final) prev);
+    fix: merge: g: prev:
+    fix (self: g (merge prev self) prev);
 
   makeLayRebase = makeLayRebaseWith fix;
   makeLayRebase' = makeLayRebaseWith fix';
 
   makeLayFuse =
-    merger: g: h: final: prev:
+    merge: g: h: final: prev:
     let
-      base = g final prev;
+      mid = g final prev;
     in
-    merger base (h final (merger prev base));
+    merge mid (h final (merge prev mid));
 
   makeLayFold = flip foldr (final: prev: { });
 
@@ -75,8 +75,8 @@ rec {
     else
       final: prev: g;
 
-  nestOverlayWith = merger: base: name: fn: final: prev: {
-    ${name} = fix (merger (invoke fn) (_: prev.${base} or { }));
+  nestOverlayWith = merge: base: n: g: final: prev: {
+    ${n} = fix (merge (invoke g) (_: prev.${base} or { }));
   };
 
   nestOverlayr = nestOverlayWith layr;

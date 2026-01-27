@@ -4,9 +4,9 @@ let
 in
 rec {
   attrPos' =
-    default: s: set:
+    default: n: set:
     let
-      pos = unsafeGetAttrPos s set;
+      pos = unsafeGetAttrPos n set;
     in
     if pos == null then default else "${pos.file}:${toString pos.line}:${toString pos.column}";
 

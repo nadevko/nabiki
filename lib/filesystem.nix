@@ -6,7 +6,12 @@ let
   inherit (prev.trivial) const;
   inherit (prev) nixosSystem;
 
-  inherit (final.attrsets) bindAttrs mbindAttrs mergeMapAttrs;
+  inherit (final.attrsets)
+    bindAttrs
+    mbindAttrs
+    mergeMapAttrs
+    singletonAttrs
+    ;
   inherit (final.paths)
     stemOfNix
     stemOf
@@ -16,12 +21,14 @@ let
     isVisibleDir
     isDir
     ;
-  inherit (final.di) callPackageWith callPinnedWith;
+  inherit (final.di) callPackageWith callPackageBy callWith;
 in
 rec {
+  readDirPaths = root: mapAttrs (n: _: root + "/${n}") (readDir root);
+
   makeReadDirWrapper =
-    merger: fn: root:
-    merger (name: fn (root + "/${name}") name) (readDir root);
+    merge: f: root:
+    merge (n: f (root + "/${n}") n) (readDir root);
 
   bindDir = makeReadDirWrapper bindAttrs;
   mbindDir = makeReadDirWrapper mbindAttrs;
@@ -31,17 +38,17 @@ rec {
 
   collectFiles =
     {
-      recurseInto ? name: type: isDir type,
-      include ? name: type: true,
+      recurseInto ? n: type: isDir type,
+      include ? n: type: true,
       mapAttr ?
-        abs: name: type:
+        abs: n: type:
         abs,
     }:
     let
       recurse = bindDir (
-        abs: name: type:
-        (if include name type then [ (mapAttr abs name type) ] else [ ])
-        ++ (if recurseInto name type then recurse abs else [ ])
+        abs: n: type:
+        (if include n type then [ (mapAttr abs n type) ] else [ ])
+        ++ (if recurseInto n type then recurse abs else [ ])
       );
     in
     recurse;
@@ -53,27 +60,27 @@ rec {
 
   collapseDir =
     {
-      recurseInto ? name: type: isDir type,
-      include ? name: type: !isDir type,
+      recurseInto ? n: type: isDir type,
+      include ? n: type: !isDir type,
 
       concatPrefix ?
-        prefix: name: type:
-        "${prefix}-${name}",
+        prefix: n: type:
+        "${prefix}-${n}",
       concatName ?
-        prefix: name: type:
-        "${prefix}-${stemOf name}",
+        prefix: n: type:
+        "${prefix}-${stemOf n}",
 
-      toRootPrefix ? name: type: name,
-      toRootName ? name: type: stemOf name,
+      toRootPrefix ? n: type: n,
+      toRootName ? n: type: stemOf n,
     }:
     let
       makeRecurse =
-        toPrefix: toName: abs: name: type:
+        toPrefix: toName: abs: n: type:
         let
-          entry = nameValuePair (toName name type) abs;
-          subtree = recurse (toPrefix name type) abs;
+          entry = nameValuePair (toName n type) abs;
+          subtree = recurse (toPrefix n type) abs;
         in
-        (if include name type then [ entry ] else [ ]) ++ (if recurseInto name type then subtree else [ ]);
+        (if include n type then [ entry ] else [ ]) ++ (if recurseInto n type then subtree else [ ]);
       recurse = prefix: bindDir (makeRecurse (concatPrefix prefix) (concatName prefix));
     in
     mbindDir (makeRecurse toRootPrefix toRootName);
@@ -84,37 +91,56 @@ rec {
       include = isVisibleNix;
       recurseInto = isVisibleDir;
       toRootPrefix = const;
-      toRootName = name: _: stemOfNix name;
+      toRootName = n: _: stemOfNix n;
       concatPrefix =
-        prefix: name: _:
-        "${prefix}${sep}${name}";
+        prefix: n: _:
+        "${prefix}${sep}${n}";
       concatName =
-        prefix: name: _:
-        if name == "default.nix" then prefix else "${prefix}${sep}${stemOfNix name}";
+        prefix: n: _:
+        if n == "default.nix" then prefix else "${prefix}${sep}${stemOfNix n}";
     };
 
   collapseNixDir = collapseNixDirSep "-";
 
+  readShards = mergeMapDir (
+    abs: _: type:
+    mapAttrs (n: _: abs + "/${n}") (readDir abs)
+  );
+
+  collapseShardsWith =
+    {
+      recurseInto ? n: type: isDir type,
+      include ? n: type: !isDir type,
+    }@args:
+    depth:
+    mergeMapDir (
+      abs: n: type:
+      (if include n type then singletonAttrs n abs else { })
+      // (if depth > 0 && recurseInto n type then collapseShardsWith args (depth - 1) abs else { })
+    );
+
+  collapseDirUntil = collapseShardsWith { };
+
   readDirWithManifest =
-    fn: root:
+    f: root:
     let
       dir = readDir root;
     in
     mbindAttrs (
-      name: type:
+      n: type:
       let
-        abs = root + "/${name}";
-        config = if dir ? ${name + ".nix"} then import (abs + ".nix") else { };
+        abs = root + "/${n}";
+        config = if dir ? ${n + ".nix"} then import (abs + ".nix") else { };
       in
-      if !isDir type || isHidden name then [ ] else [ (nameValuePair name (fn abs name config)) ]
+      if !isDir type || isHidden n then [ ] else [ (nameValuePair n (f abs n config)) ]
     ) dir;
 
   readConfigurations =
     builder: base: getter:
     readDirWithManifest (
-      abs: name: config:
+      abs: n: config:
       let
-        overrides = getter name;
+        overrides = getter n;
       in
       builder (
         base
@@ -135,54 +161,71 @@ rec {
   readTemplates =
     descriptions:
     readDirWithManifest (
-      abs: name: config:
+      abs: n: config:
       config
       // {
         path = abs;
-        ${if descriptions ? ${name} then "description" else null} = descriptions.${name};
+        ${if descriptions ? ${n} then "description" else null} = descriptions.${n};
       }
     );
 
   readLibOverlay =
     root: final: prev:
     mbindDir (
-      abs: name: type:
-      if isHidden name then
+      abs: n: type:
+      if isHidden n then
         [ ]
       else if isDir type then
         let
           default = abs + "/default.nix";
         in
-        if pathExists default then [ (nameValuePair name (import default final prev)) ] else [ ]
-      else if name != "default.nix" && isNix name then
-        [ (nameValuePair (stemOfNix name) (import abs final prev)) ]
+        if pathExists default then [ (nameValuePair n (import default final prev)) ] else [ ]
+      else if n != "default.nix" && isNix n then
+        [ (nameValuePair (stemOfNix n) (import abs final prev)) ]
       else
         [ ]
     ) root;
 
-  readShards = mergeMapDir (
-    abs: _: type:
-    mapAttrs (name: _: abs + "/${name}") (readDir abs)
-  );
-
-  readPackagesOverlay =
-    root: final: prev:
+  byNameOverlayFrom =
+    paths: final: prev:
     let
-      callPackage = final.callPackage or callPackageWith final;
+      callPackage = final.callPackage or (callPackageWith final);
     in
-    mapAttrs (_: abs: callPackage (abs + "/package.nix") { }) (readShards root);
+    mapAttrs (_: abs: callPackage (abs + "/package.nix") { }) paths;
 
-  readPackagesWithPinsOverlay =
-    root: final: prev:
+  byNameOverlayWithPinsFrom =
+    paths: final: prev:
     let
-      callPackage = final.callPackage or callPackageWith final;
-      callPinned = final.callPinned or callPinnedWith final;
+      call = final.call or (callWith final);
+      callPackage = final.callPackage or (callPackageBy call);
     in
     mapAttrs (
       _: abs:
       let
         pins = abs + "/pins.nix";
       in
-      (if pathExists pins then callPinned pins else callPackage) (abs + "/package.nix") { }
-    ) (readShards root);
+      callPackage (abs + "/package.nix") (if pathExists pins then call pins { } else { })
+    ) paths;
+
+  byNameOverlayWithScopesFrom =
+    paths: final: prev:
+    let
+      call = final.call or (callWith final);
+      callPackage = final.callPackage or (callPackageBy call);
+    in
+    mapAttrs (
+      _: abs:
+      let
+        package = abs + "/package.nix";
+        pins = abs + "/pins.nix";
+        overrides = if pathExists pins then call pins { } else { };
+      in
+      if pathExists package then
+        callPackage package overrides
+      else
+        let
+          default = abs + "/default.nix";
+        in
+        if pathExists default then call default overrides else import (abs + "/overlay.nix") final prev
+    ) paths;
 }

@@ -6,7 +6,7 @@ final: prev: {
   flakes = import ../lib/flakes.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
-  nixos = import ../lib/nixos/default.nix final prev;
+  nixos = import ../lib/nixos.nix final prev;
   overlays = import ../lib/overlays.nix final prev;
   paths = import ../lib/paths.nix final prev;
   trivial = import ../lib/trivial.nix final prev;
@@ -40,14 +40,12 @@ final: prev: {
     callWith
     callPackageBy
     callPackageWith
-    callPinnedByCallPackage
-    callPinnedBy
-    callPinnedWith
     makeScopeWith
     makeCompatScopeWith
     ;
 
   inherit (final.filesystem)
+    readDirPaths
     makeReadDirWrapper
     bindDir
     mbindDir
@@ -58,14 +56,17 @@ final: prev: {
     collapseDir
     collapseNixDirSep
     collapseNixDir
+    readShards
+    collapseShardsWith
+    collapseShardsUntil
     readDirWithManifest
     readConfigurations
     readNixosConfigurations
     readTemplates
     readLibOverlay
-    readShards
-    readPackagesOverlay
-    readPackagesWithPinsOverlay
+    byNameOverlayFrom
+    byNameOverlayWithPinsFrom
+    byNameOverlayWithScopesFrom
     ;
 
   inherit (final.flakes)
@@ -76,8 +77,8 @@ final: prev: {
     forPkgs
     eachSystemIn
     eachSystem
-    forSystemIn
-    forSystem
+    forSystemsIn
+    forSystems
     ;
 
   inherit (final.lists)

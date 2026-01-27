@@ -26,23 +26,23 @@ let
   inherit (final.trivial) compose snd;
 in
 rec {
-  singletonAttrs = name: value: { ${name} = value; };
+  singletonAttrs = n: v: { ${n} = v; };
 
-  bindAttrs = fn: set: concatMap (name: fn name set.${name}) (attrNames set);
-  mbindAttrs = fn: set: listToAttrs (bindAttrs fn set);
+  bindAttrs = f: set: concatMap (n: f n set.${n}) (attrNames set);
+  mbindAttrs = f: set: listToAttrs (bindAttrs f set);
 
-  mergeMapAttrs = fn: set: mergeAttrsList (map (name: fn name set.${name}) (attrNames set));
+  mergeMapAttrs = f: set: mergeAttrsList (map (n: f n set.${n}) (attrNames set));
 
   intersectWith =
-    fn: left: right:
-    mapAttrs (name: fn name left.${name}) (intersectAttrs left right);
+    f: left: right:
+    mapAttrs (n: f n left.${n}) (intersectAttrs left right);
 
   partitionAttrs = pred: set: {
     right = bindAttrs (
-      name: value: if pred name value then [ (nameValuePair name value) ] else [ ]
+      n: v: if pred n v then [ (nameValuePair n v) ] else [ ]
     ) set;
     wrong = bindAttrs (
-      name: value: if !pred name value then [ (nameValuePair name value) ] else [ ]
+      n: v: if !pred n v then [ (nameValuePair n v) ] else [ ]
     ) set;
   };
 
@@ -73,7 +73,7 @@ rec {
   genTransposedAttrs = genTransposedAttrsBy id;
 
   foldPathWith =
-    fn: default: pattern:
+    f: default: pattern:
     let
       recurse =
         deepest: nodesPath: set:
@@ -81,7 +81,7 @@ rec {
           deepest
         else
           let
-            nextDeepest = if set ? ${pattern} then fn deepest set.${pattern} else deepest;
+            nextDeepest = if set ? ${pattern} then f deepest set.${pattern} else deepest;
             nextSet = set.${head nodesPath} or null;
           in
           if nextSet == null then nextDeepest else recurse nextDeepest (tail nodesPath) nextSet;
@@ -93,17 +93,17 @@ rec {
   genLibAliasesPred =
     exclude:
     mbindAttrs (
-      name: value:
-      if !isAttrs value || exclude name value then
+      n: v:
+      if !isAttrs v || exclude n v then
         [ ]
       else
         bindAttrs (
-          name: value: if isAttrs value || hasPrefix "_" name then [ ] else [ (nameValuePair name value) ]
-        ) value
+          n: v: if isAttrs v || hasPrefix "_" n then [ ] else [ (nameValuePair n v) ]
+        ) v
     );
 
   genLibAliasesWithout =
-    blacklist: genLibAliasesPred (name: _: elem name blacklist || hasPrefix "_" name);
+    blacklist: genLibAliasesPred (n: _: elem n blacklist || hasPrefix "_" n);
 
   genLibAliases = genLibAliasesWithout [
     "systems"
@@ -127,11 +127,11 @@ rec {
     scope:
     let
       makeRecurse =
-        concat: name: value:
-        if include value then
-          [ (nameValuePair (concat name) value) ]
-        else if isAttrs value && value.recurseForDerivations or false then
-          recurse (concat name) (value.self or value)
+        concat: n: v:
+        if include v then
+          [ (nameValuePair (concat n) v) ]
+        else if isAttrs v && v.recurseForDerivations or false then
+          recurse (concat n) (v.self or v)
         else
           [ ];
 
