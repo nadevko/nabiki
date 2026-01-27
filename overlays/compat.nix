@@ -11,7 +11,10 @@ in
   context = final;
 
   makeScope = final.kasumi-lib.makeScopeWith final;
-  fuse = g: final.makeScope (lay g rattrs);
+  # conflict with pkgs.fuse -_-
+  # I want to rename it: pkgs.fuse   ->  pkgs.libfuse
+  #                      pkgs.fuse3  ->  pkgs.libfuse3
+  # fuse = g: final.makeScope (lay g rattrs);
   fold = gs: final.makeScope (lay (foldLay gs) rattrs);
   rebase = g: final.makeScope (final': g final' final);
 

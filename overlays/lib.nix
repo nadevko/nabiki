@@ -6,6 +6,7 @@ final: prev: {
   flakes = import ../lib/flakes.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
+  nixos = import ../lib/nixos/default.nix final prev;
   overlays = import ../lib/overlays.nix final prev;
   paths = import ../lib/paths.nix final prev;
   trivial = import ../lib/trivial.nix final prev;
@@ -59,6 +60,7 @@ final: prev: {
     collapseNixDir
     readDirWithManifest
     readConfigurations
+    readNixosConfigurations
     readTemplates
     readLibOverlay
     readShards

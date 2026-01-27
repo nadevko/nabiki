@@ -4,6 +4,7 @@ let
 
   inherit (prev.attrsets) nameValuePair;
   inherit (prev.trivial) const;
+  inherit (prev) nixosSystem;
 
   inherit (final.attrsets) bindAttrs mbindAttrs mergeMapAttrs;
   inherit (final.paths)
@@ -46,8 +47,8 @@ rec {
     recurse;
 
   collectNixFiles = collectFiles {
-    recurseInto = _: isVisibleDir;
-    include = _: isVisibleNix;
+    recurseInto = isVisibleDir;
+    include = isVisibleNix;
   };
 
   collapseDir =
@@ -109,17 +110,37 @@ rec {
     ) dir;
 
   readConfigurations =
-    build: inputs:
+    builder: base: getter:
     readDirWithManifest (
       abs: name: config:
-      build name (config inputs // { modules = (collectNixFiles abs) ++ (config.modules or [ ]); })
+      let
+        overrides = getter name;
+      in
+      builder (
+        base
+        // config
+        // overrides
+        // {
+          modules =
+            (collectNixFiles abs)
+            ++ (base.modules or [ ])
+            ++ (config.modules or [ ])
+            ++ (overrides.modules or [ ]);
+        }
+      )
     );
 
+  readNixosConfigurations = readConfigurations nixosSystem;
+
   readTemplates =
-    build: inputs:
+    descriptions:
     readDirWithManifest (
       abs: name: config:
-      build name (config inputs // { path = abs; })
+      config
+      // {
+        path = abs;
+        ${if descriptions ? ${name} then "description" else null} = descriptions.${name};
+      }
     );
 
   readLibOverlay =

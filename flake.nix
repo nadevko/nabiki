@@ -17,7 +17,7 @@
         lib = import ./overlays/lib.nix;
         compat = import ./overlays/compat.nix;
       };
-      templates = lib.filesystem.readTemplates ./templates;
+      templates = lib.filesystem.readTemplates { } ./templates;
       legacyPackages = lib.forSystem (
         system:
         import nixpkgs {
