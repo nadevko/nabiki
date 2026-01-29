@@ -41,7 +41,6 @@ final: prev: {
     callPackageBy
     callPackageWith
     makeScopeWith
-    makeCompatScopeWith
     ;
 
   inherit (final.filesystem)
@@ -58,7 +57,6 @@ final: prev: {
     collapseNixDir
     readShards
     collapseShardsWith
-    collapseShardsUntil
     readDirWithManifest
     readConfigurations
     readNixosConfigurations
