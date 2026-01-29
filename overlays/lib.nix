@@ -62,6 +62,7 @@ final: prev: {
     readNixosConfigurations
     readTemplates
     readLibOverlay
+    byNameOverlayWithName
     byNameOverlayFrom
     byNameOverlayWithPinsFrom
     byNameOverlayWithScopesFrom

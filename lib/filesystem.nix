@@ -186,12 +186,15 @@ rec {
         [ ]
     ) root;
 
-  byNameOverlayFrom =
-    paths: final: prev:
+  byNameOverlayWithName =
+    name: paths: final: prev:
     let
       callPackage = final.callPackage or (callPackageWith final);
+      suffix = "/" + name;
     in
-    mapAttrs (_: abs: callPackage (abs + "/package.nix") { }) paths;
+    mapAttrs (_: abs: callPackage (abs + suffix) { }) paths;
+
+  byNameOverlayFrom = byNameOverlayWithName "package.nix";
 
   byNameOverlayWithPinsFrom =
     paths: final: prev:
