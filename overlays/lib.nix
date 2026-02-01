@@ -3,12 +3,12 @@ final: prev: {
   debug = import ../lib/debug.nix final prev;
   di = import ../lib/di.nix final prev;
   filesystem = import ../lib/filesystem.nix final prev;
-  flakes = import ../lib/flakes.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
   nixos = import ../lib/nixos.nix final prev;
   overlays = import ../lib/overlays.nix final prev;
   paths = import ../lib/paths.nix final prev;
+  systems = import ../lib/systems.nix final prev;
   trivial = import ../lib/trivial.nix final prev;
 
   inherit (final.attrsets)
@@ -68,18 +68,6 @@ final: prev: {
     byNameOverlayWithScopesFrom
     ;
 
-  inherit (final.flakes)
-    pkgsFrom
-    eachPkgsIn
-    eachPkgs
-    forPkgsIn
-    forPkgs
-    eachSystemIn
-    eachSystem
-    forSystemsIn
-    forSystems
-    ;
-
   inherit (final.lists)
     splitAt
     intersectStrings
@@ -131,6 +119,15 @@ final: prev: {
     isVisible
     isVisibleNix
     isVisibleDir
+    ;
+
+  inherit (final.systems)
+    flakeSystems
+    importFlakePkgs
+    forAllSystems
+    forSystems
+    forAllPkgs
+    forPkgs
     ;
 
   inherit (final.trivial)

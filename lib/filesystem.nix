@@ -132,7 +132,7 @@ rec {
         abs = root + "/${n}";
         config = if dir ? ${n + ".nix"} then import (abs + ".nix") else { };
       in
-      if !isDir type || isHidden n then [ ] else [ (nameValuePair n (f abs n config)) ]
+      if isDir type -> isHidden n then [ ] else [ (nameValuePair n (f abs n config)) ]
     ) dir;
 
   readConfigurations =

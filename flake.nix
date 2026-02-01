@@ -28,7 +28,7 @@
           ];
         }
       );
-      packages = lib.forSystem (
+      packages = lib.forAllSystems (
         system:
         nixpkgs.lib.pipe nixpkgs.legacyPackages.${system} [
           (pkgs: lib.makeScopeWith pkgs (self: self.overlays.default self pkgs))

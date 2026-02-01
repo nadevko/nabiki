@@ -38,12 +38,8 @@ rec {
     mapAttrs (n: f n left.${n}) (intersectAttrs left right);
 
   partitionAttrs = pred: set: {
-    right = bindAttrs (
-      n: v: if pred n v then [ (nameValuePair n v) ] else [ ]
-    ) set;
-    wrong = bindAttrs (
-      n: v: if !pred n v then [ (nameValuePair n v) ] else [ ]
-    ) set;
+    right = bindAttrs (n: v: if pred n v then [ (nameValuePair n v) ] else [ ]) set;
+    wrong = bindAttrs (n: v: if !pred n v then [ (nameValuePair n v) ] else [ ]) set;
   };
 
   pointwisel =
@@ -77,7 +73,7 @@ rec {
     let
       recurse =
         deepest: nodesPath: set:
-        if nodesPath == [ ] || !isAttrs set then
+        if isAttrs set -> nodesPath == [ ] then
           deepest
         else
           let
@@ -94,16 +90,13 @@ rec {
     exclude:
     mbindAttrs (
       n: v:
-      if !isAttrs v || exclude n v then
+      if isAttrs v -> exclude n v then
         [ ]
       else
-        bindAttrs (
-          n: v: if isAttrs v || hasPrefix "_" n then [ ] else [ (nameValuePair n v) ]
-        ) v
+        bindAttrs (n: v: if isAttrs v || hasPrefix "_" n then [ ] else [ (nameValuePair n v) ]) v
     );
 
-  genLibAliasesWithout =
-    blacklist: genLibAliasesPred (n: _: elem n blacklist || hasPrefix "_" n);
+  genLibAliasesWithout = blacklist: genLibAliasesPred (n: _: elem n blacklist || hasPrefix "_" n);
 
   genLibAliases = genLibAliasesWithout [
     "systems"

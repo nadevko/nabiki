@@ -77,7 +77,7 @@ rec {
         # I want to rename it: pkgs.fuse   ->  pkgs.libfuse
         #                      pkgs.fuse3  ->  pkgs.libfuse3
         # fuse = g: self.makeScope (lay g rattrs);
-        fuze = g: self.makeScope (lay g rattrs);
+        fuses = g: self.makeScope (lay g rattrs);
         fold = gs: self.makeScope (lay (foldLay gs) rattrs);
         rebase = g: self.makeScope (self: g self pkgs);
 
