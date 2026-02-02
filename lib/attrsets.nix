@@ -18,6 +18,7 @@ let
     genAttrs
     mapAttrsToList
     mergeAttrsList
+    isDerivation
     ;
   inherit (prev.strings) hasPrefix;
   inherit (prev.trivial) id;
@@ -109,4 +110,11 @@ rec {
     "features"
     "teams"
   ];
+
+  isSupportedDerivation =
+    system: v:
+    isDerivation v
+    && !(v.meta.broken or false)
+    && (v.meta ? badPlatforms -> !elem system v.meta.badPlatforms)
+    && (v.meta ? platforms -> elem system v.meta.platforms);
 }

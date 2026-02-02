@@ -44,6 +44,8 @@ final: prev: {
     collapseScopeWith
     collapseScopeSep
     collapseScope
+    collapseSupportedSep
+    collapseSupportedBy
     ;
 
   inherit (final.filesystem)
