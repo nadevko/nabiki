@@ -10,7 +10,6 @@ let
     concatStringsSep
     concatMap
     ;
-  inherit (prev.trivial) pipe;
   inherit (prev.lists)
     take
     sortOn
@@ -32,21 +31,21 @@ rec {
       callee = invoke f;
       calleeArgs = functionArgs callee;
       callAttrs = intersectAttrs calleeArgs context // overrides;
-      missing = findFirst (n: !(callAttrs ? ${n} || calleeArgs.${n})) null (attrNames calleeArgs);
+      missing = findFirst (n: !(callAttrs ? ${n} || calleeArgs.${n})) null <| attrNames calleeArgs;
     in
     if missing == null then
       callee callAttrs
     else
       let
         suggestions =
-          pipe
-            [ overrides context ]
-            [
-              (concatMap attrNames)
-              (filter (levenshteinAtMost 2 missing))
-              (sortOn (levenshtein missing))
-              (take 3)
-            ];
+          [
+            overrides
+            context
+          ]
+          |> concatMap attrNames
+          |> filter (levenshteinAtMost 2 missing)
+          |> sortOn (levenshtein missing)
+          |> take 3;
 
         didYouMean =
           if suggestions == [ ] then
@@ -54,13 +53,13 @@ rec {
           else if length suggestions == 1 then
             ", did you mean '${head suggestions}'?"
           else
-            ", did you mean '${concatStringsSep "', '" (init suggestions)}' or '${last suggestions}'?";
+            ", did you mean '${concatStringsSep "', '" <| init suggestions}' or '${last suggestions}'?";
 
         pos = attrPos missing calleeArgs;
       in
       abort "kasumi.lib.di.callWith: Function called without required argument '${missing}' at ${pos}${didYouMean}";
 
-  callPackageBy = call: f: makeOverridable (call (invoke f));
+  callPackageBy = call: f: invoke f |> call |> makeOverridable;
   callPackageWith = compose callPackageBy callWith;
 
   makeScopeWith =
@@ -77,8 +76,8 @@ rec {
         # I want to rename it: pkgs.fuse   ->  pkgs.libfuse
         #                      pkgs.fuse3  ->  pkgs.libfuse3
         # fuse = g: self.makeScope (lay g rattrs);
-        fuses = g: self.makeScope (lay g rattrs);
-        fold = gs: self.makeScope (lay (foldLay gs) rattrs);
+        fuses = g: self.makeScope <| lay g rattrs;
+        fold = gs: self.makeScope <| lay (foldLay gs) rattrs;
         rebase = g: self.makeScope (self: g self pkgs);
 
         call = callWith pkgs;

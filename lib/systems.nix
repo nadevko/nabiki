@@ -15,7 +15,7 @@ rec {
     if config == { } then
       flake.legacyPackages.${system}
     else
-      import flake ({ inherit system; } // (if isFunction config then config system else config));
+      import flake <| { inherit system; } // (if isFunction config then config system else config);
 
   forAllSystems = genAttrs flakeSystems;
   forSystems = genAttrs;

@@ -16,7 +16,7 @@ in
     x: list:
     let
       len = length list;
-      x' = max 0 (min len (if x < 0 then len + x else x));
+      x' = max 0 <| min len (if x < 0 then len + x else x);
     in
     {
       left = take x' list;
@@ -29,7 +29,7 @@ in
       [ ]
     else
       let
-        index = listToAttrs (map (e: nameValuePair (toString e) null) target);
+        index = target |> map (e: nameValuePair (toString e) null) |> listToAttrs;
       in
       filter (e: index ? "${toString e}") base;
 
@@ -39,7 +39,7 @@ in
       minuend
     else
       let
-        index = listToAttrs (map (e: nameValuePair (toString e) null) subtrahend);
+        index = subtrahend |> map (e: nameValuePair (toString e) null) |> listToAttrs;
       in
       filter (e: !index ? "${toString e}") minuend;
 
@@ -54,7 +54,7 @@ in
         else
           let
             thisStage = transform previousStage (elemAt itemsList index) nextStage;
-            nextStage = linkStage thisStage (index + 1);
+            nextStage = linkStage thisStage <| index + 1;
           in
           thisStage;
       initialStage = getInitial firstStage;

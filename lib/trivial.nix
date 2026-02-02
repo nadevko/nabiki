@@ -12,7 +12,7 @@ rec {
 
   compose =
     f: g: x:
-    f (g x);
+    f <| g x;
 
   fpipe = flip pipe;
 

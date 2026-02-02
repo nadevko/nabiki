@@ -14,7 +14,7 @@ rec {
     let
       prev = rattrs final;
     in
-    merge prev (g final prev);
+    merge prev <| g final prev;
 
   makeLayRebaseWith =
     fix: merge: g: prev:
@@ -28,7 +28,7 @@ rec {
     let
       mid = g final prev;
     in
-    merge mid (h final (merge prev mid));
+    merge prev mid |> h final |> merge mid;
 
   makeLayFold = flip foldr (final: prev: { });
 
@@ -76,7 +76,7 @@ rec {
       final: prev: g;
 
   nestOverlayWith = merge: base: n: g: final: prev: {
-    ${n} = fix (merge (invoke g) (_: prev.${base} or { }));
+    ${n} = fix <| merge (invoke g) (_: prev.${base} or { });
   };
 
   nestOverlayr = nestOverlayWith layr;

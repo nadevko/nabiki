@@ -24,11 +24,11 @@ let
   inherit (final.di) callPackageWith callPackageBy callWith;
 in
 rec {
-  readDirPaths = root: mapAttrs (n: _: root + "/${n}") (readDir root);
+  readDirPaths = root: mapAttrs (n: _: root + "/${n}") <| readDir root;
 
   makeReadDirWrapper =
     merge: f: root:
-    merge (n: f (root + "/${n}") n) (readDir root);
+    merge (n: f (root + "/${n}") n) <| readDir root;
 
   bindDir = makeReadDirWrapper bindAttrs;
   mbindDir = makeReadDirWrapper mbindAttrs;
@@ -81,9 +81,9 @@ rec {
           subtree = recurse (toPrefix n type) abs;
         in
         (if include n type then [ entry ] else [ ]) ++ (if recurseInto n type then subtree else [ ]);
-      recurse = prefix: bindDir (makeRecurse (concatPrefix prefix) (concatName prefix));
+      recurse = prefix: bindDir <| makeRecurse (concatPrefix prefix) (concatName prefix);
     in
-    mbindDir (makeRecurse toRootPrefix toRootName);
+    mbindDir <| makeRecurse toRootPrefix toRootName;
 
   collapseNixDirSep =
     sep:
@@ -104,7 +104,7 @@ rec {
 
   readShards = mergeMapDir (
     abs: _: type:
-    mapAttrs (n: _: abs + "/${n}") (readDir abs)
+    mapAttrs (n: _: abs + "/${n}") <| readDir abs
   );
 
   collapseShardsWith =
@@ -116,10 +116,10 @@ rec {
     mergeMapDir (
       abs: n: type:
       (if include n type then singletonAttrs n abs else { })
-      // (if depth > 0 && recurseInto n type then collapseShardsWith args (depth - 1) abs else { })
+      // (if 0 < depth && recurseInto n type then collapseShardsWith args (depth - 1) abs else { })
     );
 
-  collapseDirUntil = collapseShardsWith { };
+  collapseShardsUntil = collapseShardsWith { };
 
   readDirWithManifest =
     f: root:
@@ -130,9 +130,9 @@ rec {
       n: type:
       let
         abs = root + "/${n}";
-        config = if dir ? ${n + ".nix"} then import (abs + ".nix") else { };
+        config = if dir ? ${n + ".nix"} then import <| abs + ".nix" else { };
       in
-      if isDir type -> isHidden n then [ ] else [ (nameValuePair n (f abs n config)) ]
+      if isDir type -> isHidden n then [ ] else [ (nameValuePair n <| f abs n config) ]
     ) dir;
 
   readConfigurations =
@@ -179,9 +179,9 @@ rec {
         let
           default = abs + "/default.nix";
         in
-        if pathExists default then [ (nameValuePair n (import default final prev)) ] else [ ]
+        if pathExists default then [ (nameValuePair n <| import default final prev) ] else [ ]
       else if n != "default.nix" && isNix n then
-        [ (nameValuePair (stemOfNix n) (import abs final prev)) ]
+        [ (nameValuePair (stemOfNix n) <| import abs final prev) ]
       else
         [ ]
     ) root;

@@ -18,7 +18,7 @@
         compat = import ./overlays/compat.nix;
       };
       templates = lib.filesystem.readTemplates { } ./templates;
-      legacyPackages = lib.forSystem (
+      legacyPackages = lib.forAllSystems (
         system:
         import nixpkgs {
           inherit system;
@@ -30,10 +30,16 @@
       );
       packages = lib.forAllSystems (
         system:
-        nixpkgs.lib.pipe nixpkgs.legacyPackages.${system} [
-          (pkgs: lib.makeScopeWith pkgs (self: self.overlays.default self pkgs))
-          (s: s.self)
-        ]
+        nixpkgs.legacyPackages.${system}
+        |> (pkgs: lib.makeScopeWith pkgs (self: self.overlays.default self pkgs))
+        |> (s: s.self)
       );
     };
+
+  nixConfig = {
+    extra-experimental-features = [
+      "pipe-operators"
+      "no-url-literals"
+    ];
+  };
 }

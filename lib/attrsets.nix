@@ -28,14 +28,14 @@ in
 rec {
   singletonAttrs = n: v: { ${n} = v; };
 
-  bindAttrs = f: set: concatMap (n: f n set.${n}) (attrNames set);
-  mbindAttrs = f: set: listToAttrs (bindAttrs f set);
+  bindAttrs = f: set: concatMap (n: f n set.${n}) <| attrNames set;
+  mbindAttrs = f: set: listToAttrs <| bindAttrs f set;
 
-  mergeMapAttrs = f: set: mergeAttrsList (map (n: f n set.${n}) (attrNames set));
+  mergeMapAttrs = f: set: attrNames set |> map (n: f n set.${n}) |> mergeAttrsList;
 
   intersectWith =
     f: left: right:
-    mapAttrs (n: f n left.${n}) (intersectAttrs left right);
+    mapAttrs (n: f n left.${n}) <| intersectAttrs left right;
 
   partitionAttrs = pred: set: {
     right = bindAttrs (n: v: if pred n v then [ (nameValuePair n v) ] else [ ]) set;
@@ -46,25 +46,26 @@ rec {
     base: augment:
     base
     // mapAttrs (
-      n: v: if isAttrs v && isAttrs (base.${n} or null) then v // base.${n} else base.${n} or v
+      n: v: if isAttrs v && isAttrs <| base.${n} or null then v // base.${n} else base.${n} or v
     ) augment;
 
   pointwiser =
     base: override:
     base
-    // mapAttrs (n: v: if isAttrs v && isAttrs (base.${n} or null) then base.${n} // v else v) override;
+    // mapAttrs (
+      n: v: if isAttrs v && isAttrs <| base.${n} or null then base.${n} // v else v
+    ) override;
 
-  transposeAttrs = compose (zipAttrsWith (_: listToAttrs)) (
-    mapAttrsToList (root: mapAttrs (_: nameValuePair root))
-  );
+  transposeAttrs =
+    set: zipAttrsWith (_: listToAttrs) <| mapAttrsToList (root: mapAttrs (_: nameValuePair root)) set;
 
   genAttrsBy =
     adapter: roots: generator:
-    genAttrs roots (compose generator adapter);
+    genAttrs roots <| compose generator adapter;
 
   genTransposedAttrsBy =
     adapter: roots: generator:
-    transposeAttrs (genAttrsBy adapter roots generator);
+    transposeAttrs <| genAttrsBy adapter roots generator;
 
   genTransposedAttrs = genTransposedAttrsBy id;
 
@@ -124,13 +125,13 @@ rec {
         if include v then
           [ (nameValuePair (concat n) v) ]
         else if isAttrs v && v.recurseForDerivations or false then
-          recurse (concat n) (v.self or v)
+          recurse (concat n) <| v.self or v
         else
           [ ];
 
-      recurse = prefix: bindAttrs (makeRecurse (n: "${prefix}${sep}${n}"));
+      recurse = prefix: bindAttrs <| makeRecurse (n: "${prefix}${sep}${n}");
     in
-    mbindAttrs (makeRecurse id) (scope.self or scope);
+    mbindAttrs (makeRecurse id) <| scope.self or scope;
 
   collapseScopeSep = sep: collapseScopeWith { inherit sep; };
   collapseScope = collapseScopeSep "-";

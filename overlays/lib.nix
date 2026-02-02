@@ -57,6 +57,7 @@ final: prev: {
     collapseNixDir
     readShards
     collapseShardsWith
+    collapseShardsUntil
     readDirWithManifest
     readConfigurations
     readNixosConfigurations
