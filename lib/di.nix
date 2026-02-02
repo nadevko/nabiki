@@ -9,6 +9,7 @@ let
     length
     concatStringsSep
     concatMap
+    isAttrs
     ;
   inherit (prev.lists)
     take
@@ -19,10 +20,13 @@ let
     ;
   inherit (prev.strings) levenshteinAtMost levenshtein;
   inherit (prev.customisation) makeOverridable;
+  inherit (prev.attrsets) nameValuePair isDerivation;
+  inherit (prev.trivial) id;
 
   inherit (final.trivial) invoke compose;
   inherit (final.overlays) lay foldLay;
   inherit (final.debug) attrPos;
+  inherit (final.attrsets) mbindAttrs bindAttrs;
 in
 rec {
   callWith =
@@ -63,26 +67,49 @@ rec {
   callPackageWith = compose callPackageBy callWith;
 
   makeScopeWith =
-    prev: rattrs:
+    prev: __rattrs:
     let
-      pkgs = prev // self;
-      extension = rattrs pkgs;
-      self = extension // {
-        inherit pkgs extension;
-        __unfix__ = rattrs;
+      pkgs = prev // scope;
+      extension = __rattrs pkgs;
 
-        makeScope = makeScopeWith pkgs;
-        # conflict with pkgs.fuse -_-
-        # I want to rename it: pkgs.fuse   ->  pkgs.libfuse
-        #                      pkgs.fuse3  ->  pkgs.libfuse3
-        # fuse = g: self.makeScope (lay g rattrs);
-        fuses = g: self.makeScope <| lay g rattrs;
-        fold = gs: self.makeScope <| lay (foldLay gs) rattrs;
-        rebase = g: self.makeScope (self: g self pkgs);
+      scope = extension // {
+        inherit
+          pkgs
+          extension
+          scope
+          __rattrs
+          ;
 
         call = callWith pkgs;
-        callPackage = callPackageBy self.call;
+        callPackage = callPackageBy scope.call;
       };
     in
-    self;
+    scope;
+
+  fuseScope = g: scope: makeScopeWith scope.pkgs <| lay g scope.__rattrs;
+  foldScope = gs: scope: makeScopeWith scope.pkgs <| lay (foldLay gs) scope.__rattrs;
+  rebaseScope = g: scope: makeScopeWith scope.pkgs (self: g self scope.pkgs);
+
+  collapseScopeWith =
+    {
+      include ? isDerivation,
+      sep ? "-",
+    }:
+    scope:
+    let
+      makeRecurse =
+        concat: n: v:
+        if include v then
+          [ (nameValuePair (concat n) v) ]
+        else if isAttrs v && v.recurseForDerivations or false then
+          recurse (concat n) (v.extension or v)
+        else
+          [ ];
+
+      recurse = prefix: bindAttrs <| makeRecurse (n: "${prefix}${sep}${n}");
+    in
+    mbindAttrs (makeRecurse id) (scope.extension or scope);
+
+  collapseScopeSep = sep: collapseScopeWith { inherit sep; };
+  collapseScope = collapseScopeSep "-";
 }

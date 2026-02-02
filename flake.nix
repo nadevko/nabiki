@@ -21,23 +21,15 @@
         compat = import ./overlays/compat.nix;
       };
 
-      legacyPackages = lib.forAllSystems (
-        system:
-        import nixpkgs {
-          inherit system;
-          overlays = [
-            self.overlays.compat
-            self.overlays.default
-          ];
-        }
-      );
+      legacyPackages = lib.forAllPkgs nixpkgs {
+        overlays = [
+          self.overlays.compat
+          self.overlays.default
+        ];
+      } nixpkgs.lib.id;
 
-      packages = lib.forAllSystems (
-        system:
-        nixpkgs.legacyPackages.${system}
-        |> (pkgs: lib.makeScopeWith pkgs (_: { }))
-        |> (scope: scope.rebase self.overlays.default)
-        |> lib.collapseScope
+      packages = lib.forAllPkgs nixpkgs { } (
+        pkgs: lib.makeScopeWith pkgs (_: { }) |> lib.rebaseScope self.overlays.default |> lib.collapseScope
       );
 
       formatter = lib.forAllPkgs self { } (pkgs: pkgs.kasumi-fmt);

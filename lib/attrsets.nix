@@ -17,7 +17,6 @@ let
     nameValuePair
     genAttrs
     mapAttrsToList
-    isDerivation
     mergeAttrsList
     ;
   inherit (prev.strings) hasPrefix;
@@ -110,27 +109,4 @@ rec {
     "features"
     "teams"
   ];
-
-  collapseScopeWith =
-    {
-      include ? isDerivation,
-      sep ? "-",
-    }:
-    scope:
-    let
-      makeRecurse =
-        concat: n: v:
-        if include v then
-          [ (nameValuePair (concat n) v) ]
-        else if isAttrs v && v.recurseForDerivations or false then
-          recurse (concat n) (v.extension or v)
-        else
-          [ ];
-
-      recurse = prefix: bindAttrs <| makeRecurse (n: "${prefix}${sep}${n}");
-    in
-    mbindAttrs (makeRecurse id) (scope.extension or scope);
-
-  collapseScopeSep = sep: collapseScopeWith { inherit sep; };
-  collapseScope = collapseScopeSep "-";
 }

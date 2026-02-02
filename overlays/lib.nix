@@ -29,9 +29,6 @@ final: prev: {
     genLibAliasesPred
     genLibAliasesWithout
     genLibAliases
-    collapseScopeWith
-    collapseScopeSep
-    collapseScope
     ;
 
   inherit (final.debug) attrPos' attrPos;
@@ -41,6 +38,12 @@ final: prev: {
     callPackageBy
     callPackageWith
     makeScopeWith
+    fuseScope
+    foldScope
+    rebaseScope
+    collapseScopeWith
+    collapseScopeSep
+    collapseScope
     ;
 
   inherit (final.filesystem)

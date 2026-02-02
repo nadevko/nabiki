@@ -26,10 +26,10 @@ rec {
     self;
 
   fix' =
-    rattrs:
+    __rattrs:
     let
-      self = rattrs self // {
-        __unfix__ = rattrs;
+      self = __rattrs self // {
+        inherit __rattrs;
       };
     in
     self;
