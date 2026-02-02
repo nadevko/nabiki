@@ -5,6 +5,7 @@ final: prev: {
   filesystem = import ../lib/filesystem.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
+  meta = import ../lib/meta.nix final prev;
   nixos = import ../lib/nixos.nix final prev;
   overlays = import ../lib/overlays.nix final prev;
   paths = import ../lib/paths.nix final prev;
@@ -80,6 +81,8 @@ final: prev: {
     subtractStrings
     dfold
     ;
+
+  inherit (final.meta) isSupportedDerivation;
 
   inherit (final.overlays)
     makeLayMerge

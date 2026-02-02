@@ -23,7 +23,7 @@ let
   inherit (prev.attrsets) nameValuePair isDerivation;
   inherit (prev.trivial) id;
 
-  inherit (final.attrsets) isSupportedDerivation;
+  inherit (final.meta) isSupportedDerivation;
   inherit (final.trivial) invoke compose;
   inherit (final.overlays) lay foldLay;
   inherit (final.debug) attrPos;
