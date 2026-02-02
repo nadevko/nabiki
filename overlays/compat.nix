@@ -1,9 +1,9 @@
-final: prev:
+final: _:
 let
   inherit (final.kasumi-lib.di) callWith;
   inherit (final.kasumi-lib.overlays) lay foldLay;
 
-  rattrs = self: { };
+  rattrs = _: { };
 in
 {
   kasumi-lib = import ../lib { inherit (final) lib; };

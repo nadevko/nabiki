@@ -1,4 +1,4 @@
-final: prev: {
+_: _: {
   nadevko = {
     name = "Nadeŭka";
     email = "me@nadevko.cc";

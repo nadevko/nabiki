@@ -12,12 +12,15 @@
     in
     {
       inherit lib;
+
+      templates = lib.filesystem.readTemplates { default = "unstable"; } ./templates;
+
       overlays = {
         default = import ./overlay.nix;
         lib = import ./overlays/lib.nix;
         compat = import ./overlays/compat.nix;
       };
-      templates = lib.filesystem.readTemplates { } ./templates;
+
       legacyPackages = lib.forAllSystems (
         system:
         import nixpkgs {
@@ -28,12 +31,19 @@
           ];
         }
       );
+
       packages = lib.forAllSystems (
         system:
         nixpkgs.legacyPackages.${system}
-        |> (pkgs: lib.makeScopeWith pkgs (self: self.overlays.default self pkgs))
-        |> (s: s.self)
+        |> (pkgs: lib.makeScopeWith pkgs (_: { }))
+        |> (scope: scope.rebase self.overlays.default)
+        |> lib.collapseScope
       );
+
+      formatter = lib.forAllPkgs self { } (pkgs: pkgs.kasumi-fmt);
+      devShells = lib.forAllPkgs self { } (pkgs: {
+        default = pkgs.callPackage ./shell.nix { };
+      });
     };
 
   nixConfig = {
@@ -41,5 +51,7 @@
       "pipe-operators"
       "no-url-literals"
     ];
+    extra-substituters = [ "https://kasumi.cachix.org" ];
+    extra-trusted-public-keys = [ "kasumi.cachix.org-1:ymQ5ardABxeR1WrQX+NAvohAh2GL8aAv5W6osujKbG8=" ];
   };
 }

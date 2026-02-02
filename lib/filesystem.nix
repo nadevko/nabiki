@@ -38,10 +38,10 @@ rec {
 
   collectFiles =
     {
-      recurseInto ? n: type: isDir type,
-      include ? n: type: true,
+      recurseInto ? _: isDir,
+      include ? _: _: true,
       mapAttr ?
-        abs: n: type:
+        abs: _: _:
         abs,
     }:
     let
@@ -60,18 +60,18 @@ rec {
 
   collapseDir =
     {
-      recurseInto ? n: type: isDir type,
-      include ? n: type: !isDir type,
+      recurseInto ? _: isDir,
+      include ? _: type: !isDir type,
 
       concatPrefix ?
-        prefix: n: type:
+        prefix: n: _:
         "${prefix}-${n}",
       concatName ?
-        prefix: n: type:
+        prefix: n: _:
         "${prefix}-${stemOf n}",
 
-      toRootPrefix ? n: type: n,
-      toRootName ? n: type: stemOf n,
+      toRootPrefix ? n: _: n,
+      toRootName ? n: _: stemOf n,
     }:
     let
       makeRecurse =
@@ -81,7 +81,7 @@ rec {
           subtree = recurse (toPrefix n type) abs;
         in
         (if include n type then [ entry ] else [ ]) ++ (if recurseInto n type then subtree else [ ]);
-      recurse = prefix: bindDir <| makeRecurse (concatPrefix prefix) (concatName prefix);
+      recurse = prefix: bindDir <| makeRecurse (concatPrefix prefix) <| concatName prefix;
     in
     mbindDir <| makeRecurse toRootPrefix toRootName;
 
@@ -103,14 +103,14 @@ rec {
   collapseNixDir = collapseNixDirSep "-";
 
   readShards = mergeMapDir (
-    abs: _: type:
+    abs: _: _:
     mapAttrs (n: _: abs + "/${n}") <| readDir abs
   );
 
   collapseShardsWith =
     {
-      recurseInto ? n: type: isDir type,
-      include ? n: type: !isDir type,
+      recurseInto ? _: isDir,
+      include ? _: type: !isDir type,
     }@args:
     depth:
     mergeMapDir (
@@ -187,7 +187,7 @@ rec {
     ) root;
 
   byNameOverlayWithName =
-    name: paths: final: prev:
+    name: paths: final: _:
     let
       callPackage = final.callPackage or (callPackageWith final);
       suffix = "/" + name;
@@ -197,7 +197,7 @@ rec {
   byNameOverlayFrom = byNameOverlayWithName "package.nix";
 
   byNameOverlayWithPinsFrom =
-    paths: final: prev:
+    paths: final: _:
     let
       call = final.call or (callWith final);
       callPackage = final.callPackage or (callPackageBy call);

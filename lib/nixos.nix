@@ -1,1 +1,1 @@
-final: prev: { inherit (prev) nixosSystem; }
+_: prev: { inherit (prev) nixosSystem; }

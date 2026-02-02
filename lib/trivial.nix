@@ -1,11 +1,11 @@
-final: prev:
+_: prev:
 let
   inherit (builtins) isFunction functionArgs;
 
   inherit (prev.trivial) flip pipe;
 in
 rec {
-  snd = x: y: y;
+  snd = _: y: y;
   apply = f: x: f x;
   eq = x: y: x == y;
   neq = x: y: x != y;
@@ -35,7 +35,7 @@ rec {
     self;
 
   annotateArgs = args: f: {
-    __functor = self: f;
+    __functor = _: f;
     __functionArgs = args;
   };
 

@@ -30,7 +30,7 @@ rec {
     in
     merge prev mid |> h final |> merge mid;
 
-  makeLayFold = flip foldr (final: prev: { });
+  makeLayFold = flip foldr (_: _: { });
 
   rebaseSelf = g: prev: fix (self: g self prev);
   rebaseSelf' = g: prev: fix' (self: g self prev);
@@ -62,7 +62,7 @@ rec {
       in
       if isFunction prev' then g final prev else prev'
     else
-      final: prev: g;
+      _: _: g;
 
   overlayl =
     g:
@@ -73,9 +73,9 @@ rec {
       in
       if isFunction final' then final' prev else final'
     else
-      final: prev: g;
+      _: _: g;
 
-  nestOverlayWith = merge: base: n: g: final: prev: {
+  nestOverlayWith = merge: base: n: g: _: prev: {
     ${n} = fix <| merge (invoke g) (_: prev.${base} or { });
   };
 

@@ -21,6 +21,6 @@ rec {
   isHidden = hasPrefix ".";
   isVisible = n: !isHidden n;
 
-  isVisibleNix = n: type: isVisible n && isNix n;
+  isVisibleNix = n: _: isVisible n && isNix n;
   isVisibleDir = n: type: isVisible n && isDir type;
 }

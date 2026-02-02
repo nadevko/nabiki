@@ -46,15 +46,13 @@ rec {
     base: augment:
     base
     // mapAttrs (
-      n: v: if isAttrs v && isAttrs <| base.${n} or null then v // base.${n} else base.${n} or v
+      n: v: if isAttrs v && isAttrs (base.${n} or null) then v // base.${n} else base.${n} or v
     ) augment;
 
   pointwiser =
     base: override:
     base
-    // mapAttrs (
-      n: v: if isAttrs v && isAttrs <| base.${n} or null then base.${n} // v else v
-    ) override;
+    // mapAttrs (n: v: if isAttrs v && isAttrs (base.${n} or null) then base.${n} // v else v) override;
 
   transposeAttrs =
     set: zipAttrsWith (_: listToAttrs) <| mapAttrsToList (root: mapAttrs (_: nameValuePair root)) set;
@@ -125,13 +123,13 @@ rec {
         if include v then
           [ (nameValuePair (concat n) v) ]
         else if isAttrs v && v.recurseForDerivations or false then
-          recurse (concat n) <| v.self or v
+          recurse (concat n) (v.extension or v)
         else
           [ ];
 
       recurse = prefix: bindAttrs <| makeRecurse (n: "${prefix}${sep}${n}");
     in
-    mbindAttrs (makeRecurse id) <| scope.self or scope;
+    mbindAttrs (makeRecurse id) (scope.extension or scope);
 
   collapseScopeSep = sep: collapseScopeWith { inherit sep; };
   collapseScope = collapseScopeSep "-";
