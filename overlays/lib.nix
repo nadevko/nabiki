@@ -140,7 +140,6 @@ final: prev: {
     eq
     neq
     compose
-    fpipe
     invoke
     fix
     fix'

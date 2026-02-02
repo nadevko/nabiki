@@ -1,8 +1,6 @@
 _: prev:
 let
   inherit (builtins) isFunction functionArgs;
-
-  inherit (prev.trivial) flip pipe;
 in
 rec {
   snd = _: y: y;
@@ -13,8 +11,6 @@ rec {
   compose =
     f: g: x:
     f <| g x;
-
-  fpipe = flip pipe;
 
   invoke = f: if isFunction f then f else import f;
 
