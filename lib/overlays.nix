@@ -75,12 +75,17 @@ rec {
     else
       _: _: g;
 
-  nestOverlayWith = merge: base: n: g: _: prev: {
-    ${n} = fix <| merge (invoke g) (_: prev.${base} or { });
-  };
+  nestOverlayWith =
+    merge: base: n: g: final: prev:
+    let
+      prevN = prev.${base} or { };
+    in
+    {
+      ${n} = merge prevN <| invoke g final.${n} prevN;
+    };
 
-  nestOverlayr = nestOverlayWith layr;
-  nestOverlayl = nestOverlayWith layl;
+  nestOverlayr = nestOverlayWith pointwiser;
+  nestOverlayl = nestOverlayWith pointwisel;
 
   forkLibAs = nestOverlayr "lib";
   forkLib = forkLibAs "lib";
