@@ -1,6 +1,6 @@
 final: _:
 let
-  inherit (final.kasumi-lib.di) callWith;
+  inherit (final.k.di) callWith;
 in
 {
   k = import ../lib { inherit (final) lib; };

@@ -3,6 +3,7 @@ final: prev: {
   debug = import ../lib/debug.nix final prev;
   di = import ../lib/di.nix final prev;
   filesystem = import ../lib/filesystem.nix final prev;
+  layer = import ../lib/layer.nix final prev;
   lists = import ../lib/lists.nix final prev;
   maintainers = import ../lib/maintainers.nix final prev;
   meta = import ../lib/meta.nix final prev;
@@ -34,20 +35,7 @@ final: prev: {
 
   inherit (final.debug) attrPos' attrPos;
 
-  inherit (final.di)
-    callWith
-    callPackageBy
-    callPackageWith
-    makeScopeWith
-    fuseScope
-    foldScope
-    rebaseScope
-    collapseScopeWith
-    collapseScopeSep
-    collapseScope
-    collapseSupportedSep
-    collapseSupportedBy
-    ;
+  inherit (final.di) callWith callPackageBy callPackageWith;
 
   inherit (final.filesystem)
     readDirPaths
@@ -72,7 +60,20 @@ final: prev: {
     byNameOverlayWithName
     byNameOverlayFrom
     byNameOverlayWithPinsFrom
-    byNameOverlayWithScopesFrom
+    comfyByNameOverlayFrom
+    ;
+
+  inherit (final.layer)
+    makeLayer
+    fuseLayerWith
+    foldLayerWith
+    rebaseLayerTo
+    rebaseLayerToFold
+    collapseLayerWith
+    collapseLayerSep
+    collapseLayer
+    collapseSupportedSep
+    collapseSupportedBy
     ;
 
   inherit (final.lists)
@@ -111,6 +112,7 @@ final: prev: {
     overlayr
     overlayl
     nestOverlayWith
+    nestOverlay
     nestOverlayr
     nestOverlayl
     forkLibAs
@@ -137,6 +139,8 @@ final: prev: {
     forSystems
     forAllPkgs
     forPkgs
+    importPkgsForAll
+    importPkgsFor
     ;
 
   inherit (final.trivial)

@@ -6,7 +6,7 @@ let
   inherit (prev.trivial) flip mergeAttrs;
 
   inherit (final.attrsets) pointwisel pointwiser;
-  inherit (final.trivial) fix fix' invoke;
+  inherit (final.trivial) fix fix';
 in
 rec {
   makeLayMerge =
@@ -81,9 +81,10 @@ rec {
       prevN = prev.${base} or { };
     in
     {
-      ${n} = merge prevN <| invoke g final.${n} prevN;
+      ${n} = merge prevN <| g final.${n} prevN;
     };
 
+  nestOverlay = nestOverlayWith mergeAttrs;
   nestOverlayr = nestOverlayWith pointwiser;
   nestOverlayl = nestOverlayWith pointwisel;
 

@@ -210,7 +210,7 @@ rec {
       callPackage (abs + "/package.nix") (if pathExists pins then call pins { } else { })
     ) paths;
 
-  byNameOverlayWithScopesFrom =
+  comfyByNameOverlayFrom =
     paths: final: prev:
     let
       call = final.call or (callWith final);

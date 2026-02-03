@@ -6,6 +6,7 @@ let
 
   inherit (prev.systems) flakeExposed;
   inherit (prev.attrsets) genAttrs;
+  inherit (prev.trivial) id;
 in
 rec {
   flakeSystems = flakeExposed;
@@ -24,4 +25,9 @@ rec {
   forPkgs =
     systems: flake: config:
     genAttrsBy (importFlakePkgs flake config) systems;
+
+  importPkgsFor =
+    systems: flake: config:
+    genAttrsBy (importFlakePkgs flake config) systems id;
+  importPkgsForAll = importPkgsFor flakeSystems;
 }

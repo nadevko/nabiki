@@ -1,4 +1,4 @@
-_: prev:
+_: _:
 let
   inherit (builtins) isFunction functionArgs;
 in
@@ -22,10 +22,10 @@ rec {
     self;
 
   fix' =
-    __rattrs:
+    rattrs:
     let
-      self = __rattrs self // {
-        inherit __rattrs;
+      self = rattrs self // {
+        inherit rattrs;
       };
     in
     self;
